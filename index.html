@@ -2480,9 +2480,9 @@ function buildHolidayMapForYear(year){
     // ===== FINE FIREBASE =====
 
     // ===== ADMIN =====
-    // Cambia questa password per proteggere il pannello admin
-    // (deve essere UGUALE alla password dell'utente Firebase che hai creato)
-    const ADMIN_PASS = '8bha*Sr#!7y!wUZw';
+    // La password admin è caricata da /api/auth-config a runtime.
+    // La variabile _adminPass viene impostata da initFirebase().
+    // Per il login offline (locale) usa la stessa password Firebase.
 
     function isAdminSession(){
       try{ return sessionStorage.getItem('adminSession') === '1'; } catch(e){ return false; }
@@ -2525,7 +2525,11 @@ function buildHolidayMapForYear(year){
       const errEl = document.getElementById('adminPassError');
 
       document.getElementById('confirmAdminBtn').addEventListener('click', ()=>{
-        if(passInput.value === ADMIN_PASS){
+        if(!_adminPass){
+          errEl.textContent = 'Credenziali non ancora caricate, riprova tra un secondo.';
+          errEl.style.display = 'block'; return;
+        }
+        if(passInput.value === _adminPass){
           setAdminSession(true);
           errEl.style.display = 'none';
           passInput.value = '';
