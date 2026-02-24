@@ -524,79 +524,124 @@
       background: rgba(10, 18, 25, 0.78);
       box-shadow: 0 18px 30px rgba(0,0,0,0.32);
       overflow-x: auto;
-      overflow-y: visible; /* la pagina scorre ovunque */
+      overflow-y: visible;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-x pan-y;
       position: relative;
-      padding: 10px 12px; /* crea spazio e arrotonda visivamente l'intestazione */
+      padding: 6px 8px;
     }
 
     table.matrix-table{
-      border-collapse: separate;
+      border-collapse: collapse;
       border-spacing: 0;
       width: 100%;
-      min-width: 820px;
-      font-size: 13px;
+      min-width: 420px;
+      font-size: 11px;
       color: var(--text);
     }
     .matrix-table th, .matrix-table td{
-      padding: 16px 18px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      border-right: 1px solid rgba(255,255,255,0.04);
+      padding: 4px 5px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      border-right: 1px solid rgba(255,255,255,0.05);
       vertical-align: middle;
       background: transparent;
       text-align: center;
+      white-space: nowrap;
     }
     .matrix-table thead{background:transparent;}
     .matrix-table th{
-      font-size: 14px;
-      text-transform: none;
-      letter-spacing: 0.2px;
-      color: var(--muted);
-      font-weight: 1000;
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
       position: sticky;
       top: 0;
       z-index: 3;
       background: linear-gradient(90deg, rgba(96,165,250,0.95), rgba(139,92,246,0.95));
       color: rgba(255,255,255,0.96);
       backdrop-filter: blur(6px);
-      padding-top: 18px;
-      padding-bottom: 18px;
+      padding-top: 7px;
+      padding-bottom: 7px;
     }
-    /* Rounded corners for the table header to match container */
-    .matrix-table thead th:first-child{ border-top-left-radius: 12px; }
-    .matrix-table thead th:last-child{ border-top-right-radius: 12px; }
-    .matrix-table th:first-child{
-      left: 0;
-      z-index: 4;
-    }
+    .matrix-table thead th:first-child{ border-top-left-radius: 10px; }
+    .matrix-table thead th:last-child{ border-top-right-radius: 10px; }
+    .matrix-table th:first-child{ left: 0; z-index: 4; }
     .matrix-table td:first-child{
       position: sticky;
       left: 0;
       z-index: 2;
-      background: linear-gradient(180deg, rgba(16,18,25,0.95), rgba(30,35,42,0.9));
+      background: linear-gradient(180deg, rgba(16,18,25,0.97), rgba(30,35,42,0.95));
       backdrop-filter: none;
-      min-width: 220px;
-      color: rgba(255,255,255,0.92);
+      min-width: 100px;
+      max-width: 120px;
+      color: rgba(255,255,255,0.80);
+      font-weight: 700;
+      font-style: italic;
+      font-size: 10px;
+      text-align: left;
+      padding-left: 7px;
+      border-right: 1px solid rgba(255,255,255,0.08);
+    }
+    /* Base-time column (2nd) */
+    .matrix-table td.td-base{
+      font-size: 12px;
       font-weight: 900;
-      border-right: 1px solid rgba(255,255,255,0.04);
+      color: rgba(96,195,255,0.95);
+      min-width: 34px;
+      border-right: 1px solid rgba(255,255,255,0.10);
+    }
+    .matrix-table th.th-base{
+      min-width: 34px;
+    }
+    /* Day cells */
+    .matrix-table td.td-day{
+      min-width: 30px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .tbl-rip{
+      display: inline-block;
+      color: #f59e0b;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 0.2px;
+    }
+    html[data-theme="dark"] .tbl-rip{ color: #f87171; }
+    .tbl-ovr{
+      display: inline-block;
+      color: rgba(255,255,255,0.85);
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .tbl-holiday-short{
+      display: block;
+      color: var(--danger);
+      font-size: 9px;
+      font-weight: 700;
+      max-width: 46px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tbl-rientro-badge{
+      display: block;
+      font-size: 8px;
+      font-weight: 800;
+      color: #d97706;
+      letter-spacing: 0px;
+      margin-top: 1px;
     }
     .matrix-table tr:last-child td{border-bottom: 0;}
     .matrix-table th:last-child, .matrix-table td:last-child{border-right: 0;}
-
-    /* Reduce contrast dimming — keep rows readable */
     .row-dim{opacity: 1;}
-    /* In dark theme keep a slight dim to de-emphasize but readable */
-    html[data-theme="dark"] .row-dim{opacity: 0.75;}
+    html[data-theme="dark"] .row-dim{opacity: 0.65;}
     .week-label{
-      display:block; /* single-line label for table column */
-      text-align:center;
-      font-weight: 900;
-      text-transform: uppercase;
-      font-size: 13px;
-      letter-spacing: 0.6px;
-      color: var(--muted);
-      padding: 6px 8px;
+      display:block;
+      font-style: italic;
+      font-weight: 600;
+      font-size: 10px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.2;
     }
     .matrix-table td:first-child .week-label{display:block;}
     .week-label small{display:none !important;}    
@@ -640,10 +685,10 @@
 
     /* Mobile: disable sticky to avoid "layer" feel; let the page scroll anywhere */
     @media (max-width: 720px){
-      table.matrix-table{min-width: 720px;}
+      table.matrix-table{min-width: 420px;}
       .matrix-table th, .matrix-table td{position: static !important; backdrop-filter: none !important;}
       .matrix-table th{background: transparent !important;}
-      .matrix-table td:first-child{background: transparent !important;}
+      .matrix-table td:first-child{background: transparent !important; min-width: 80px !important; max-width: 90px !important;}
       .card{backdrop-filter: none;}
       .topbar{backdrop-filter: none;}
     }
@@ -2191,34 +2236,45 @@ function buildHolidayMapForYear(year){
       return weeks;
     }
 
+    // Formatta un orario HH:MM in forma compatta: 10:00→10, 13:30→13:30
+    function compactTime(t){
+      if(!t) return '';
+      const parts = String(t).split(':');
+      const h = parseInt(parts[0]||'0', 10);
+      const m = parseInt(parts[1]||'0', 10);
+      return m === 0 ? String(h) : `${h}:${String(m).padStart(2,'0')}`;
+    }
+
     function renderTable(weeks){
       const wrap = document.getElementById('matrixTableWrap');
-      const cols = ['Settimana', ...DAYS];
       const todayISO = isoDate(new Date());
 
       let html = '<div class="matrix-container"><table class="matrix-table" id="matrixTable"><thead><tr>';
-      cols.forEach(c => html += `<th>${c}</th>`);
+      html += '<th>Settimana</th><th class="th-base">Ora</th>';
+      DAYS.forEach(c => html += `<th>${c}</th>`);
       html += '</tr></thead><tbody>';
 
       weeks.forEach(w => {
         const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
         html += `<tr class="${w.inMonth ? '' : 'row-dim'}${isRowToday ? ' row-today' : ''}">`;
-        html += `<td><span class="week-label"><span class="sr-only">Settimana ${w.weekIndex+1}</span>${w.label}</span></td>`;
+        html += `<td><span class="week-label">${w.label}</span></td>`;
+        html += `<td class="td-base">${compactTime(w.baseStartTime)}</td>`;
 
         w.days.forEach(d => {
           const isToday = isoDate(d.dateObj) === todayISO;
-          let cellHtml = `<div class="cell-stack">`;
-          if (d.holidayName){
-            cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
-            cellHtml += `<div class="holiday-name">${d.holidayName}</div>`;
-          } else if (d.isRest){
-            cellHtml += `<div class="pill rest">LIBERO</div>`;
+          let cell = '';
+          if(d.isHoliday){
+            const short = escapeHtml(d.holidayName).substring(0, 8);
+            cell = `<span class="tbl-holiday-short time-red">${short}</span>`;
+          } else if(d.isRest){
+            cell = `<span class="tbl-rip">RIP</span>`;
           } else {
-            cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            const ct = compactTime(d.start);
+            const baseCt = compactTime(w.baseStartTime);
+            if(ct !== baseCt) cell = `<span class="tbl-ovr">${ct}</span>`;
           }
-          if(d.isRientro) cellHtml += `<div class="cal-rientro">&#x1f3e2; Rientro</div>`;
-          cellHtml += `</div>`;
-          html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
+          if(d.isRientro) cell += `<span class="tbl-rientro-badge">&#x1f3e2;</span>`;
+          html += `<td class="td-day${isToday ? ' cell-today' : ''}">${cell}</td>`;
         });
 
         html += '</tr>';
