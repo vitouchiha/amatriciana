@@ -1055,7 +1055,7 @@
       .brand-text{ display:none; }
       .icon-btn{ width:32px; height:32px; border-radius:9px; }
       .icon-btn i{ font-size:13px; }
-      .ctrl .label{ display:none; }
+      .ctrl .label{ font-size:8px; letter-spacing:0; }
     }
 
     /* Evidenzia riga/cella corrente nella tabella */
@@ -1310,12 +1310,6 @@
             </button>
             <span class="label" id="viewLabel">Tabella</span>
           </div>
-          <div class="ctrl">
-            <button class="icon-btn" id="todayBtn" type="button" aria-label="Vai ad oggi">
-              <i class="fa-solid fa-calendar-day"></i>
-            </button>
-            <span class="label">Oggi</span>
-          </div>
         </div>
 
         <div class="tbtn-sep"></div>
@@ -1323,10 +1317,10 @@
         <!-- Gruppo utility -->
         <div class="tbtn-group">
           <div class="ctrl">
-            <button class="icon-btn" id="themeToggle" type="button" aria-label="Tema">
-              <i class="fa-solid fa-gear"></i>
+            <button class="icon-btn" id="themeToggle" type="button" aria-label="Cambia tema">
+              <i class="fa-solid fa-moon" id="themeIcon"></i>
             </button>
-            <span class="label">Tema</span>
+            <span class="label" id="themeLabel">Buio</span>
           </div>
           <div class="ctrl">
             <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
@@ -1511,6 +1505,46 @@
           <div class="search-results" id="searchResults" style="display:none;"></div>
         </div>
       </section>
+
+      <!-- Scambi Orari -->
+      <section class="card" id="swapCard">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Scambi Orari</div>
+            <div class="card-sub">Verifica se uno scambio di turno con un collega è ammesso dal contratto.</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="swapPrereq" class="note">
+            <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
+            Genera prima la tua matrice e aggiungi almeno un collega con configurazione completa.
+          </div>
+          <div id="swapForm" style="display:none;">
+            <div class="controls-grid" style="gap:8px;">
+              <div class="ctrl-item">
+                <span class="control-label">Collega</span>
+                <select id="swapColleagueSelect" class="hours-select" style="width:100%;"></select>
+              </div>
+              <div class="ctrl-item">
+                <span class="control-label">Il tuo giorno</span>
+                <input type="date" id="swapDateA" class="search-date-input" style="width:100%;" />
+              </div>
+              <div class="ctrl-item">
+                <span class="control-label">Giorno del collega</span>
+                <input type="date" id="swapDateB" class="search-date-input" style="width:100%;" />
+              </div>
+              <div class="ctrl-item" style="justify-content:flex-end;">
+                <span class="control-label" style="visibility:hidden;">OK</span>
+                <button class="btn ok-btn" id="swapVerifyBtn" type="button">
+                  <i class="fa-solid fa-arrows-rotate"></i> Verifica scambio
+                </button>
+              </div>
+            </div>
+          </div>
+          <div id="swapResult" style="display:none; margin-top:12px;"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -2197,6 +2231,7 @@ function buildHolidayMapForYear(year){
     function render(){
       const previewCard = document.getElementById('previewCard');
       if(previewCard) previewCard.style.display = state.generated ? '' : 'none';
+      refreshSwapReadiness();
       const previewWrap = document.getElementById('previewWrap');
       const empty = document.getElementById('emptyPreview');
       if(!state.generated){
@@ -2641,6 +2676,7 @@ function buildHolidayMapForYear(year){
 
       if(!state.colleghi.length){
         if(empty) empty.style.display = '';
+        refreshSwapReadiness();
         return;
       }
       if(empty) empty.style.display = 'none';
@@ -2676,6 +2712,7 @@ function buildHolidayMapForYear(year){
         }
         list.appendChild(row);
       });
+      refreshSwapReadiness();
     }
 
     // Genera ID unico
@@ -3028,6 +3065,204 @@ function buildHolidayMapForYear(year){
 
     // ===== FINE TEAM =====
 
+    // ===== SCAMBI ORARI =====
+
+    function buildCfgFromState(){
+      return {
+        role: state.role,
+        durationMinutes: state.durationMinutes,
+        startWeekISO: state.startWeekISO,
+        anchorPatternIndex: state.anchorPatternIndex
+      };
+    }
+
+    // Gap in minuti tra fine turno prev e inizio turno next (su giorni calendari consecutivi)
+    function swapGapMinutes(prevStart, prevEnd, nextStart){
+      const pS = timeStrToMinutes(prevStart);
+      const pE = timeStrToMinutes(prevEnd);
+      const nS = timeStrToMinutes(nextStart);
+      // Prev end in minuti assoluti dal mezzanotte del giorno prev
+      let prevEndAbs;
+      if(prevEnd === '00:00'){
+        prevEndAbs = 1440; // esattamente mezzanotte = fine giorno prev
+      } else if(pE < pS){
+        prevEndAbs = pE + 1440; // turno a cavallo mezzanotte
+      } else {
+        prevEndAbs = pE;
+      }
+      // Next start è 1 giorno dopo = +1440
+      return (1440 + nS) - prevEndAbs;
+    }
+
+    // Controlla gap 11h tra due giorni consecutivi (prevDay → nextDay)
+    function swapCheck11h(prevDay, nextDay){
+      if(!prevDay || prevDay.isRest || !nextDay || nextDay.isRest) return { ok: true };
+      const gap = swapGapMinutes(prevDay.start, prevDay.end, nextDay.start);
+      if(gap < 660){
+        const h = Math.floor(gap/60), m = gap%60;
+        return { ok: false, reason: `Solo ${h}h${m ? ' '+m+'m' : ''} di riposo tra i turni (minimo 11h)` };
+      }
+      return { ok: true };
+    }
+
+    // Verifica gap 11h inserendo newShift su targetIso per una persona con cfg
+    function swapValidate11h(cfg, targetIso, newShift){
+      if(newShift.isRest) return [];
+      const errors = [];
+      const d = parseISODate(targetIso);
+      const prevDay = getScheduleOnDate(cfg, isoDate(addDays(d, -1)));
+      const nextDay = getScheduleOnDate(cfg, isoDate(addDays(d, +1)));
+      const r1 = swapCheck11h(prevDay, newShift);
+      if(!r1.ok) errors.push(r1.reason + ' (rispetto al giorno precedente)');
+      const r2 = swapCheck11h(newShift, nextDay);
+      if(!r2.ok) errors.push(r2.reason + ' (rispetto al giorno successivo)');
+      return errors;
+    }
+
+    // Verifica max 5 giorni consecutivi dopo aver sostituito targetIso con newIsWork
+    function swapValidate5Consec(cfg, targetIso, newIsWork){
+      const center = parseISODate(targetIso);
+      const arr = [];
+      for(let i = -5; i <= 5; i++){
+        const iso = isoDate(addDays(center, i));
+        if(iso === targetIso){
+          arr.push(newIsWork);
+        } else {
+          const d = getScheduleOnDate(cfg, iso);
+          arr.push(d ? !d.isRest : false);
+        }
+      }
+      let maxC = 0, cur = 0;
+      for(const w of arr){ if(w){ cur++; maxC = Math.max(maxC, cur); } else cur = 0; }
+      if(maxC > 5) return [`Troppi giorni consecutivi di lavoro: ${maxC} (massimo 5)`];
+      return [];
+    }
+
+    // Validazione completa di uno scambio
+    function validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName){
+      const errors = [];
+      if(!state.generated || state.anchorPatternIndex === null){
+        errors.push('Genera prima la tua matrice.'); return errors;
+      }
+      // Ruolo compatibile
+      if(state.role !== collegaCfg.role){
+        const rA = state.role === 'tutor' ? 'Tutor' : 'Dipendente';
+        const rB = collegaCfg.role === 'tutor' ? 'Tutor' : 'Dipendente';
+        errors.push(`Ruoli incompatibili: tu sei ${rA}, ${collegaName} è ${rB}. Solo scambi tra pari ruolo.`);
+        return errors;
+      }
+      const cfgA = buildCfgFromState();
+      const dayA = getScheduleOnDate(cfgA, dateA_iso);
+      const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
+      if(!dayA){ errors.push(`Il giorno ${dateA_iso} è fuori dalla tua matrice.`); return errors; }
+      if(!dayB){ errors.push(`Il giorno ${dateB_iso} è fuori dalla matrice di ${collegaName}.`); return errors; }
+
+      // Dopo lo scambio: tu prendi il turno di dayB su dateA, collega prende dayA su dateB
+      const newForA = { isRest: dayB.isRest, start: dayB.start, end: dayB.end };
+      const newForB = { isRest: dayA.isRest, start: dayA.start, end: dayA.end };
+
+      swapValidate11h(cfgA, dateA_iso, newForA).forEach(e => errors.push(`[Tu – ${dateA_iso}] ${e}`));
+      swapValidate11h(collegaCfg, dateB_iso, newForB).forEach(e => errors.push(`[${collegaName} – ${dateB_iso}] ${e}`));
+      swapValidate5Consec(cfgA, dateA_iso, !newForA.isRest).forEach(e => errors.push(`[Tu] ${e}`));
+      swapValidate5Consec(collegaCfg, dateB_iso, !newForB.isRest).forEach(e => errors.push(`[${collegaName}] ${e}`));
+      return errors;
+    }
+
+    function swapFmtDay(iso){
+      const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+      const dt = parseISODate(iso);
+      return `${dayNames[dt.getDay()]} ${fmtDayMonth(dt)}`;
+    }
+    function swapFmtShift(day){
+      if(!day) return '—';
+      return day.isRest ? '🔴 Riposo' : `${day.start} – ${day.end}`;
+    }
+
+    function renderSwapResult(dateA_iso, dateB_iso, collegaCfg, collegaName){
+      const resultEl = document.getElementById('swapResult');
+      if(!resultEl) return;
+      const cfgA = buildCfgFromState();
+      const dayA = getScheduleOnDate(cfgA, dateA_iso);
+      const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
+      const errors = validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName);
+
+      let html = `<div style="background:var(--ctrl-bg);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:13px;">
+        <div style="margin-bottom:8px;font-weight:700;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Riepilogo</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div>
+            <div style="font-size:11px;opacity:0.55;margin-bottom:2px;">Tu · ${swapFmtDay(dateA_iso)}</div>
+            <div style="font-weight:700;">${swapFmtShift(dayA)}</div>
+            <div style="font-size:11px;opacity:0.45;margin-top:3px;">→ ${swapFmtShift(dayB ? { isRest: dayB.isRest, start: dayB.start, end: dayB.end } : null)}</div>
+          </div>
+          <div>
+            <div style="font-size:11px;opacity:0.55;margin-bottom:2px;">${escapeHtml(collegaName)} · ${swapFmtDay(dateB_iso)}</div>
+            <div style="font-weight:700;">${swapFmtShift(dayB)}</div>
+            <div style="font-size:11px;opacity:0.45;margin-top:3px;">→ ${swapFmtShift(dayA ? { isRest: dayA.isRest, start: dayA.start, end: dayA.end } : null)}</div>
+          </div>
+        </div>
+      </div>`;
+
+      if(errors.length === 0){
+        html += `<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.28);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
+          <i class="fa-solid fa-circle-check" style="color:#22c55e;font-size:20px;flex-shrink:0;"></i>
+          <span style="font-size:13px;font-weight:600;color:#22c55e;">Scambio ammesso ✓</span>
+        </div>`;
+      } else {
+        html += `<div style="background:rgba(248,113,113,.10);border:1px solid rgba(248,113,113,.22);border-radius:10px;padding:10px 14px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+            <i class="fa-solid fa-circle-xmark" style="color:#f87171;font-size:20px;flex-shrink:0;"></i>
+            <span style="font-size:13px;font-weight:600;color:#f87171;">Scambio non ammesso</span>
+          </div>
+          <ul style="margin:0;padding-left:18px;font-size:12px;display:flex;flex-direction:column;gap:4px;">
+            ${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}
+          </ul>
+        </div>`;
+      }
+      resultEl.innerHTML = html;
+      resultEl.style.display = 'block';
+    }
+
+    function refreshSwapReadiness(){
+      const prereq = document.getElementById('swapPrereq');
+      const form   = document.getElementById('swapForm');
+      if(!prereq || !form) return;
+      const ready = state.generated &&
+        state.colleghi.some(c => c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined);
+      prereq.style.display = ready ? 'none' : '';
+      form.style.display   = ready ? '' : 'none';
+      if(ready){
+        const sel = document.getElementById('swapColleagueSelect');
+        if(!sel) return;
+        sel.innerHTML = '<option value="">— seleziona —</option>';
+        state.colleghi.forEach((c, idx) => {
+          if(!c.startWeekISO || c.anchorPatternIndex === null || c.anchorPatternIndex === undefined) return;
+          const opt = document.createElement('option');
+          opt.value = String(idx);
+          opt.textContent = `${c.name} (${c.role === 'tutor' ? 'Tutor' : 'Dipendente'})`;
+          sel.appendChild(opt);
+        });
+      }
+    }
+
+    function initSwap(){
+      refreshSwapReadiness();
+      const verifyBtn = document.getElementById('swapVerifyBtn');
+      if(!verifyBtn) return;
+      verifyBtn.addEventListener('click', () => {
+        const sel    = document.getElementById('swapColleagueSelect');
+        const dateA  = document.getElementById('swapDateA').value;
+        const dateB  = document.getElementById('swapDateB').value;
+        if(!sel || !sel.value){ toast('Attenzione', 'Seleziona un collega.'); return; }
+        if(!dateA){ toast('Attenzione', 'Inserisci il tuo giorno.'); return; }
+        if(!dateB){ toast('Attenzione', 'Inserisci il giorno del collega.'); return; }
+        const collega = state.colleghi[Number(sel.value)];
+        if(!collega){ toast('Errore', 'Collega non trovato.'); return; }
+        renderSwapResult(dateA, dateB, collega, collega.name);
+      });
+    }
+
+    // ===== FINE SCAMBI ORARI =====
+
     function stepDone(stepId, text){
       const inp = document.getElementById(`step-${stepId}-input`);
       const sum = document.getElementById(`step-${stepId}-sum`);
@@ -3143,8 +3378,11 @@ function buildHolidayMapForYear(year){
     // --------- Theme & view ---------
     function setTheme(theme){
       document.documentElement.setAttribute('data-theme', theme);
-      // Icon stays as "gear" (UI style from screenshot)
       localStorage.setItem('theme', theme);
+      const icon = document.getElementById('themeIcon');
+      const lbl  = document.getElementById('themeLabel');
+      if(icon) icon.className = theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+      if(lbl)  lbl.textContent = theme === 'dark' ? 'Buio' : 'Chiaro';
     }
     function initTheme(){
       const saved = localStorage.getItem('theme');
@@ -3303,7 +3541,6 @@ function buildHolidayMapForYear(year){
 
     async function sharePng(){
       if(!state.generated){ toast('Matrice assente', 'Genera prima la matrice.'); return; }
-      // Mostra feedback immediato
       const btn = document.getElementById('shareTopBtn');
       if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
@@ -3311,29 +3548,15 @@ function buildHolidayMapForYear(year){
         if(!blob) throw new Error('Export fallito');
         const fileLabel = { table: 'tabella', cards: 'schede', calendar: 'calendario' }[state.viewMode] || 'vista';
         const fileName = `matrice-orari-${fileLabel}.png`;
-        const file = new File([blob], fileName, { type: 'image/png' });
+        // Usa octet-stream per far trattare il file come documento (evita compressione immagini su WhatsApp)
+        const file = new File([blob], fileName, { type: 'application/octet-stream' });
 
-        // 1. Web Share API con file (mobile / Safari / Chrome Android)
         if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
           await navigator.share({ title: 'Matrice Orari', files: [file] });
-
-        // 2. Clipboard API (desktop Chrome/Edge)
-        } else if(navigator.clipboard && window.ClipboardItem){
-          try{
-            await navigator.clipboard.write([
-              new ClipboardItem({ 'image/png': blob })
-            ]);
-            toast('Copiata!', 'Immagine copiata negli appunti — incollala dove vuoi.');
-          } catch(clipErr){
-            // clipboard fallback: download
-            await _downloadBlob(blob, fileName);
-            toast('Salvata', 'Immagine scaricata — aprila e condividila.');
-          }
-
-        // 3. Fallback universale: download diretto
         } else {
-          await _downloadBlob(blob, fileName);
-          toast('Salvata', 'Immagine scaricata — aprila e condividila.');
+          // Fallback: download diretto
+          _downloadBlob(blob, fileName);
+          toast('Salvata', 'File scaricato — condividilo in WhatsApp come Documento per qualità massima.');
         }
       } catch(err){
         if(err && err.name !== 'AbortError'){
@@ -3437,6 +3660,9 @@ function buildHolidayMapForYear(year){
       // Team e cerca per data
       initTeam();
 
+      // Scambi orari
+      initSwap();
+
       // Calendario inline settimana
       initInlineCal();
 
@@ -3505,23 +3731,6 @@ function buildHolidayMapForYear(year){
       // Export buttons — ora direttamente sui tasti topbar
       document.getElementById('saveTopBtn').addEventListener('click', savePng);
       document.getElementById('shareTopBtn').addEventListener('click', sharePng);
-
-      // Tasto Oggi
-      const todayBtn = document.getElementById('todayBtn');
-      if(todayBtn){
-        todayBtn.addEventListener('click', (e) => {
-          addRipple(todayBtn, e.clientX || (todayBtn.getBoundingClientRect().left+10), e.clientY || (todayBtn.getBoundingClientRect().top+10));
-          playClickSound();
-          if(!state.generated){ toast('Oggi', 'Genera prima la matrice.'); return; }
-          const vm = state.viewMode;
-          let el = null;
-          if(vm === 'table') el = document.querySelector('.matrix-table .cell-today');
-          else if(vm === 'cards') el = document.querySelector('#matrixCardsWrap .day-row-today');
-          else if(vm === 'calendar') el = document.querySelector('#matrixCalendarWrap .cal-today');
-          if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          else toast('Oggi', 'Il giorno corrente non è nella matrice.');
-        });
-      }
 
       // Stampa: mostra solo vista attiva, apri tutti i details
       window.addEventListener('beforeprint', () => {
