@@ -2898,8 +2898,9 @@ function buildHolidayMapForYear(year){
         body.appendChild(buildTableViewForCfg(_viewedColleague));
       } else {
         const node = buildCalendarExportNodeForCfg(_viewedColleague);
-        node.style.cssText = 'font-family:inherit; display:flex; flex-direction:column; gap:14px; padding:0;';
-        Array.from(node.children).forEach(card => { card.style.width = '100%'; });
+        // Fit within modal: inherit width, remove fixed 700px
+        node.style.width = '100%';
+        node.style.padding = '0';
         body.appendChild(node);
       }
     }
@@ -2991,83 +2992,121 @@ function buildHolidayMapForYear(year){
     }
 
     function buildCalendarExportNodeForCfg(cfg){
-      const weeks     = buildMatrixDataForConfig(cfg);
-      const todayISO  = isoDate(new Date());
+      // Exact pixel-match to the on-screen .cal-* CSS classes
+      const S = {
+        cell:    'min-height:72px; padding:6px 5px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:3px; background:#fff;',
+        cellEnd: 'min-height:72px; padding:6px 5px; border-right:0;              border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:3px; background:#fff;',
+        empty:   'background:rgba(0,0,0,0.015);',
+        rest:    'background:rgba(239,68,68,0.04);',
+        holiday: 'background:rgba(239,68,68,0.07);',
+        dayNum:  'font-size:12px; font-weight:900; color:#94a3b8; line-height:1; margin-bottom:2px;',
+        dayToday:'font-size:12px; font-weight:900; color:#5c9bff;  line-height:1; margin-bottom:2px;',
+        time:    'font-size:12px; font-weight:900; color:#1e293b; line-height:1.15;',
+        timeEnd: 'font-size:11px; font-weight:700; color:#64748b;',
+        timeRed: 'font-size:12px; font-weight:900; color:#ef4444; line-height:1.15;',
+        timeEndRed:'font-size:11px; font-weight:700; color:#ef4444;',
+        libero:  'font-size:11px; font-weight:900; color:#ef4444; letter-spacing:0.2px;',
+        hname:   'font-size:10px; font-weight:900; color:#ef4444; line-height:1.2; word-break:break-word;',
+        dow:     'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 4px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
+        dowEnd:  'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 4px; border-right:0;                border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
+      };
+      const weeks    = buildMatrixDataForConfig(cfg);
+      const todayISO = isoDate(new Date());
       const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
       const monthMap  = new Map();
-      weeks.forEach(w => {
-        w.days.forEach(d => {
-          const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
-          if(!monthMap.has(key)) monthMap.set(key, []);
-          monthMap.get(key).push(d);
-        });
-      });
+      weeks.forEach(w => w.days.forEach(d => {
+        const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
+        if(!monthMap.has(key)) monthMap.set(key, []);
+        monthMap.get(key).push(d);
+      }));
       const container = document.createElement('div');
-      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:8px; width:700px;';
+      container.style.cssText = 'background:#f1f5f9; font-family:system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:12px; width:700px; box-sizing:border-box;';
       monthMap.forEach((days, key) => {
         const [y, m] = key.split('-').map(Number);
         const monthName = MONTHS[m-1] + ' ' + y;
         const firstOfMonth = new Date(y, m-1, 1);
-        const dowFirst = firstOfMonth.getDay();
-        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1;
+        const offsetMon = (d => d===0?6:d-1)(firstOfMonth.getDay());
         const dayByISO = new Map();
         days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
         const daysInMonth = new Date(y, m, 0).getDate();
         let workDays = 0;
-        for(let day = 1; day <= daysInMonth; day++){
-          const iso = isoDate(new Date(y, m-1, day));
-          const d = dayByISO.get(iso);
+        for(let day=1;day<=daysInMonth;day++){
+          const d = dayByISO.get(isoDate(new Date(y,m-1,day)));
           if(d && !d.isRest && !d.isHoliday) workDays++;
         }
         const totalMins = workDays * (cfg.durationMinutes || 0);
-        const totH = Math.floor(totalMins / 60), totM = totalMins % 60;
-        const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' '+totM+'m' : ''}` : '—';
+        const totH = Math.floor(totalMins/60), totM = totalMins%60;
+        const oreLabel = totalMins>0 ? `${totH}h${totM?' '+totM+'m':''}` : '—';
+
+        // Card wrapper
         const card = document.createElement('div');
-        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:100%;';
+        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:16px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08);';
+
+        // Month title bar
         const titleEl = document.createElement('div');
-        titleEl.style.cssText = 'font-weight:900; font-size:14px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.14),rgba(123,97,255,0.09)); border-bottom:1px solid #e2e8f0;';
-        titleEl.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
+        titleEl.style.cssText = 'font-weight:900; font-size:14px; letter-spacing:-0.2px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.12),rgba(123,97,255,0.08)); border-bottom:1px solid #e2e8f0;';
+        titleEl.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;opacity:0.65;color:#1e293b;">${workDays} giorni · ${oreLabel}</span>`;
         card.appendChild(titleEl);
+
+        // Grid
         const grid = document.createElement('div');
         grid.style.cssText = 'display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #e2e8f0;';
+
+        // Day-of-week headers
         DOW_LABELS.forEach((dl, i) => {
-          const dow = document.createElement('div');
-          dow.style.cssText = `text-align:center; font-size:10px; font-weight:900; color:#64748b; padding:7px 2px; border-right:${i<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:#f8fafc;`;
-          dow.textContent = dl; grid.appendChild(dow);
+          const h = document.createElement('div');
+          h.style.cssText = i<6 ? S.dow : S.dowEnd;
+          h.textContent = dl; grid.appendChild(h);
         });
-        for(let i = 0; i < offsetMon; i++){
+
+        const mk = (isLast, bgExtra) => {
           const e = document.createElement('div');
-          e.style.cssText = `min-height:64px; border-right:${(i%7)<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
-          grid.appendChild(e);
+          e.style.cssText = (isLast ? S.cellEnd : S.cell) + bgExtra;
+          return e;
+        };
+
+        // Empty cells before 1st
+        for(let i=0;i<offsetMon;i++){
+          const isLast=(i%7)===6;
+          grid.appendChild(mk(isLast, S.empty));
         }
-        for(let day = 1; day <= daysInMonth; day++){
-          const dateObj = new Date(y, m-1, day);
+
+        // Day cells
+        for(let day=1;day<=daysInMonth;day++){
+          const dateObj = new Date(y,m-1,day);
           const iso = isoDate(dateObj);
           const d = dayByISO.get(iso);
-          const isToday = iso === todayISO;
-          const colPos = (offsetMon + day - 1) % 7;
-          const isLast = colPos === 6;
-          const bg = d ? (d.isRest ? 'rgba(239,68,68,0.04)' : d.isHoliday ? 'rgba(239,68,68,0.07)' : '#fff') : 'rgba(0,0,0,0.012)';
-          const cell = document.createElement('div');
-          cell.style.cssText = `min-height:64px; padding:5px 4px; border-right:${isLast?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:${bg};`;
-          const numEl = document.createElement('div');
-          numEl.style.cssText = `font-size:11px; font-weight:900; color:${isToday?'#5c9bff':'#94a3b8'}; line-height:1; margin-bottom:1px;`;
-          numEl.textContent = day; cell.appendChild(numEl);
+          const isToday = iso===todayISO;
+          const isLast = ((offsetMon+day-1)%7)===6;
+          const bgExtra = d ? (d.isRest ? S.rest : d.isHoliday ? S.holiday : '') : S.empty;
+          const cell = mk(isLast, bgExtra);
+
+          const num = document.createElement('div');
+          num.style.cssText = isToday ? S.dayToday : S.dayNum;
+          num.textContent = day; cell.appendChild(num);
+
           if(d){
-            if(d.isRest){ const lib=document.createElement('div'); lib.style.cssText='font-size:10px;font-weight:900;color:#ef4444;'; lib.textContent='LIBERO'; cell.appendChild(lib); }
-            else if(d.isHoliday){
-              const t=document.createElement('div'); t.style.cssText='font-size:11px;font-weight:900;color:#ef4444;'; t.textContent=d.start; cell.appendChild(t);
-              const te=document.createElement('div'); te.style.cssText='font-size:10px;font-weight:700;color:#ef4444;'; te.textContent=d.end; cell.appendChild(te);
-              const hn=document.createElement('div'); hn.style.cssText='font-size:9px;font-weight:900;color:#ef4444;line-height:1.2;word-break:break-word;'; hn.textContent=d.holidayName; cell.appendChild(hn);
+            if(d.isRest){
+              const lib=document.createElement('div'); lib.style.cssText=S.libero; lib.textContent='LIBERO'; cell.appendChild(lib);
+            } else if(d.isHoliday){
+              const t=document.createElement('div'); t.style.cssText=S.timeRed; t.textContent=d.start; cell.appendChild(t);
+              const te=document.createElement('div'); te.style.cssText=S.timeEndRed; te.textContent=d.end; cell.appendChild(te);
+              const hn=document.createElement('div'); hn.style.cssText=S.hname; hn.textContent=d.holidayName; cell.appendChild(hn);
             } else {
-              const t=document.createElement('div'); t.style.cssText='font-size:11px;font-weight:900;color:#1e293b;'; t.textContent=d.start; cell.appendChild(t);
-              const te=document.createElement('div'); te.style.cssText='font-size:10px;font-weight:700;color:#64748b;'; te.textContent=d.end; cell.appendChild(te);
+              const t=document.createElement('div'); t.style.cssText=S.time; t.textContent=d.start; cell.appendChild(t);
+              const te=document.createElement('div'); te.style.cssText=S.timeEnd; te.textContent=d.end; cell.appendChild(te);
             }
           }
           grid.appendChild(cell);
         }
-        const rem = (offsetMon + daysInMonth) % 7;
-        if(rem !== 0) for(let i=0;i<7-rem;i++){ const e=document.createElement('div'); const cp=(offsetMon+daysInMonth+i)%7; e.style.cssText=`min-height:64px;border-right:${cp===6?'0':'1px solid #e2e8f0'};border-bottom:1px solid #e2e8f0;background:rgba(0,0,0,0.012);`; grid.appendChild(e); }
+
+        // Trailing empty cells
+        const rem=(offsetMon+daysInMonth)%7;
+        if(rem!==0) for(let i=0;i<7-rem;i++){
+          const isLast=((offsetMon+daysInMonth+i)%7)===6;
+          grid.appendChild(mk(isLast, S.empty));
+        }
+
         card.appendChild(grid);
         container.appendChild(card);
       });
