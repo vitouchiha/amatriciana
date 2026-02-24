@@ -81,7 +81,17 @@ Vercel aggiornerà automaticamente la preview e la produzione.
 ---
 
 ## 📝 Changelog
-
+### v1.4.0
+- **Fix** export schede PNG: tutti i pannelli ora aperti nel clone
+- **Fix** reset: `updateGenerateEnabled()` chiamato correttamente
+- **Fix** calendario mobile: celle leggibili su schermi < 480px
+- **Tasto Oggi**: scrolla alla cella/riga/giorno corrente nella vista attiva
+- **Evidenziazione giorno corrente** in tutte e 3 le viste (azzurro/outline)
+- **Contatore ore mensili** nel calendario: `N giorni · Xh Ym` per ogni mese
+- **Filtro rapido mese** nel calendario: pill cliccabili per saltare al mese
+- **Weekend colorati** nel calendario (Sab/Dom lavorativi con sfondo distinto)
+- **Indicatore vista attiva** sotto il tasto Vista (Tabella / Schede / Calendario)
+- **CSS Stampa ottimizzato**: stampa solo la vista attiva, no topbar/bottombar
 ### v1.3.0
 - Nuova vista **Calendario mensile**: griglia 7 colonne (Lun-Dom) per ogni mese generato
 - Il tasto Vista cicla tra 3 modalità: Tabella → Schede → Calendario → Tabella
