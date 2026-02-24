@@ -1498,7 +1498,7 @@
       </section>
 
       <!-- Team card -->
-      <section class="card">
+      <section class="card" id="teamCard" style="display:none;">
         <div class="card-head">
           <div class="card-title">Team</div>
           <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega" style="display:none;">
@@ -1515,7 +1515,7 @@
       </section>
 
       <!-- Cerca per data e orario -->
-      <section class="card">
+      <section class="card" id="searchDateCard" style="display:none;">
         <div class="card-head">
           <div>
             <div class="card-title">Cerca per orario</div>
@@ -2727,8 +2727,12 @@ function buildHolidayMapForYear(year){
       // Admin-only cards
       const swapC = document.getElementById('swapCard');
       const findC = document.getElementById('findColleagueCard');
+      const teamC = document.getElementById('teamCard');
+      const srchC = document.getElementById('searchDateCard');
       if(swapC) swapC.style.display = isAdmin ? '' : 'none';
       if(findC) findC.style.display = isAdmin ? '' : 'none';
+      if(teamC) teamC.style.display = isAdmin ? '' : 'none';
+      if(srchC) srchC.style.display = isAdmin ? '' : 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
     }
