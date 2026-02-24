@@ -1619,9 +1619,19 @@
   <!-- Modal matrice collega -->
   <div class="modal" id="colleagueMatrixModal" role="dialog" aria-modal="true">
     <div class="modal-sheet modal-sheet-scroll" style="width:min(720px,100%);">
-      <div class="modal-head">
+      <div class="modal-head" style="flex-wrap:wrap;gap:8px;">
         <div class="modal-title" id="colleagueMatrixTitle">Matrice collega</div>
         <div style="display:flex;gap:6px;align-items:center;">
+          <div id="colleagueViewToggle" style="display:flex;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+            <button id="toggleCalBtn" type="button" title="Vista calendario"
+              style="padding:5px 10px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s;">
+              <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <button id="toggleTblBtn" type="button" title="Vista tabella"
+              style="padding:5px 10px;border:0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s;">
+              <i class="fa-solid fa-table-list"></i>
+            </button>
+          </div>
           <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PNG" title="Salva PNG">
             <i class="fa-solid fa-download"></i>
           </button>
@@ -2874,6 +2884,21 @@ function buildHolidayMapForYear(year){
 
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
+    let _colleagueViewMode = 'calendar'; // 'calendar' | 'table'
+
+    function renderColleagueBody(){
+      const body = document.getElementById('colleagueMatrixBody');
+      if(!body || !_viewedColleague) return;
+      body.innerHTML = '';
+      if(_colleagueViewMode === 'table'){
+        body.appendChild(buildTableViewForCfg(_viewedColleague));
+      } else {
+        const node = buildCalendarExportNodeForCfg(_viewedColleague);
+        node.style.cssText = 'font-family:inherit; display:flex; flex-direction:column; gap:14px; padding:0;';
+        Array.from(node.children).forEach(card => { card.style.width = '100%'; });
+        body.appendChild(node);
+      }
+    }
 
     function openColleagueMatrix(c){
       if(!c || !c.startWeekISO || c.anchorPatternIndex === null) {
@@ -2882,18 +2907,83 @@ function buildHolidayMapForYear(year){
       _viewedColleague = c;
       const title = document.getElementById('colleagueMatrixTitle');
       if(title) title.textContent = `Matrice di ${c.name}`;
-
-      const body = document.getElementById('colleagueMatrixBody');
-      if(body){
-        body.innerHTML = '';
-        // Render calendar for this colleague
-        const node = buildCalendarExportNodeForCfg(c);
-        node.style.cssText = 'font-family:inherit; display:flex; flex-direction:column; gap:14px; padding:0;';
-        // Override card width for screen display
-        Array.from(node.children).forEach(card => { card.style.width = '100%'; });
-        body.appendChild(node);
-      }
+      renderColleagueBody();
       openModal('colleagueMatrixModal');
+    }
+
+    function buildTableViewForCfg(cfg){
+      const weeks    = buildMatrixDataForConfig(cfg);
+      const todayISO = isoDate(new Date());
+      const DOW_SHORT = ['Lu','Ma','Me','Gi','Ve','Sa','Do'];
+      const monthMap  = new Map();
+      weeks.forEach(w => w.days.forEach(d => {
+        const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
+        if(!monthMap.has(key)) monthMap.set(key, []);
+        monthMap.get(key).push(d);
+      }));
+
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
+
+      monthMap.forEach((days, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const monthName = MONTHS[m-1] + ' ' + y;
+        // sort by date
+        days.sort((a,b) => a.dateObj - b.dateObj);
+
+        let workDays = 0;
+        days.forEach(d => { if(!d.isRest && !d.isHoliday) workDays++; });
+        const totalMins = workDays * (cfg.durationMinutes || 0);
+        const totH = Math.floor(totalMins/60), totM = totalMins%60;
+        const oreLabel = totalMins > 0 ? `${totH}h${totM?' '+totM+'m':''}` : '—';
+
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);';
+
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-weight:900;font-size:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(92,155,255,.14),rgba(123,97,255,.09));border-bottom:1px solid #e2e8f0;';
+        hdr.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
+        card.appendChild(hdr);
+
+        const table = document.createElement('table');
+        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
+
+        // thead
+        const thead = document.createElement('thead');
+        thead.innerHTML = `<tr style="background:#f8fafc;">
+          <th style="padding:7px 12px;text-align:left;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Giorno</th>
+          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Inizio</th>
+          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Fine</th>
+          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Note</th>
+        </tr>`;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        days.forEach((d, idx) => {
+          const dowIdx = (d.dateObj.getDay() + 6) % 7;
+          const label  = `${DOW_SHORT[dowIdx]} ${d.dateObj.getDate()}`;
+          const isToday= isoDate(d.dateObj) === todayISO;
+          const isRest = d.isRest, isHol = d.isHoliday;
+          const rowBg  = isRest ? 'rgba(239,68,68,.05)' : isHol ? 'rgba(239,68,68,.08)' : (idx%2===0 ? '#fff' : '#fafbfc');
+          const textCol= (isRest||isHol) ? '#ef4444' : '#1e293b';
+          const border = idx < days.length-1 ? 'border-bottom:1px solid #f1f5f9;' : '';
+          const todayStyle = isToday ? 'font-weight:900;text-decoration:underline;' : '';
+
+          const tr = document.createElement('tr');
+          tr.style.cssText = `background:${rowBg};`;
+          tr.innerHTML = `
+            <td style="padding:8px 12px;${border}font-size:13px;font-weight:700;color:${textCol};${todayStyle}">${label}</td>
+            <td style="padding:8px 12px;${border}text-align:center;font-size:13px;font-weight:700;color:${textCol};">${isRest ? 'LIBERO' : (d.start||'—')}</td>
+            <td style="padding:8px 12px;${border}text-align:center;font-size:13px;color:${textCol};">${isRest ? '' : (isHol ? d.end : (d.end||'—'))}</td>
+            <td style="padding:8px 12px;${border}text-align:center;font-size:11px;color:${textCol};">${isHol ? (d.holidayName||'Festivo') : ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        card.appendChild(table);
+        wrap.appendChild(card);
+      });
+      return wrap;
     }
 
     function buildCalendarExportNodeForCfg(cfg){
@@ -4224,6 +4314,23 @@ function buildHolidayMapForYear(year){
       document.getElementById('closeColleagueMatrixModal').addEventListener('click', ()=> closeModal('colleagueMatrixModal'));
       document.getElementById('saveCollegueMatrixBtn').addEventListener('click', saveColleaguePng);
       document.getElementById('colleagueMatrixModal').addEventListener('click', e=>{ if(e.target.id==='colleagueMatrixModal') closeModal('colleagueMatrixModal'); });
+      // Toggle calendario / tabella
+      document.getElementById('toggleCalBtn').addEventListener('click', ()=>{
+        _colleagueViewMode = 'calendar';
+        document.getElementById('toggleCalBtn').style.setProperty('background','var(--accent)');
+        document.getElementById('toggleCalBtn').style.setProperty('color','#fff');
+        document.getElementById('toggleTblBtn').style.setProperty('background','#fff');
+        document.getElementById('toggleTblBtn').style.setProperty('color','#64748b');
+        renderColleagueBody();
+      });
+      document.getElementById('toggleTblBtn').addEventListener('click', ()=>{
+        _colleagueViewMode = 'table';
+        document.getElementById('toggleTblBtn').style.setProperty('background','var(--accent)');
+        document.getElementById('toggleTblBtn').style.setProperty('color','#fff');
+        document.getElementById('toggleCalBtn').style.setProperty('background','#fff');
+        document.getElementById('toggleCalBtn').style.setProperty('color','#64748b');
+        renderColleagueBody();
+      });
 
       // Stampa: mostra solo vista attiva, apri tutti i details
       window.addEventListener('beforeprint', () => {
