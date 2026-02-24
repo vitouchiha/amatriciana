@@ -2558,6 +2558,7 @@ function buildHolidayMapForYear(year){
 
     let _fbApp = null, _fbAuth = null, _fbDb = null, _fbReady = false;
     let _fbInitPromise = Promise.resolve(); // risolve appena Firebase è pronto
+    let _adminPass = ''; // caricata da /api/auth-config
     const _FB_DOC = 'userdata/main'; // unico documento Firestore
 
     function _fbConfigured(){
@@ -2572,9 +2573,15 @@ function buildHolidayMapForYear(year){
         _fbDb   = firebase.firestore(_fbApp);
       } catch(e){ console.warn('[FB] init error:', e); return (_fbInitPromise = Promise.resolve()); }
 
-      _fbInitPromise = _fbAuth.signInWithEmailAndPassword(FIREBASE_EMAIL, ADMIN_PASS)
+      // Carica la password da /api/auth-config, poi fa il sign-in
+      _fbInitPromise = fetch('/api/auth-config')
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(cfg => {
+          _adminPass = cfg.password || '';
+          return _fbAuth.signInWithEmailAndPassword(cfg.email || FIREBASE_EMAIL, _adminPass);
+        })
         .then(() => { _fbReady = true; })
-        .catch(err => console.warn('[FB] auth error (app funziona lo stesso con localStorage):', err.message));
+        .catch(err => console.warn('[FB] auth error (app funziona lo stesso con localStorage):', err && err.message ? err.message : err));
       return _fbInitPromise;
     }
 
@@ -3723,7 +3730,7 @@ function buildHolidayMapForYear(year){
       initHours();
 
       // Firebase (avvia sign-in async; initTeam lo attende tramite _fbInitPromise)
-      initFirebase();
+      try { initFirebase(); } catch(e){ console.warn('[FB] initFirebase crashed:', e); }
 
       // Team e cerca per data
       initTeam();
