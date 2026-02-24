@@ -9,6 +9,18 @@
 			"/^cd \"c:\\\\Users\\\\vitob\\\\Desktop\\\\bot telegram\\\\matrice visual\" ; git init ; git add \\. ; git commit -m \"feat: matrice orari v1\\.2\\.0 - generazione fino a fine anno per Dipendente e Tutor\"$/": {
 				"approve": true,
 				"matchCommandLine": true
+			},
+			"/^cd \"c:\\\\Users\\\\vitob\\\\Desktop\\\\bot telegram\\\\matrice visual\" ; git tag v1\\.2\\.0 ; git push origin v1\\.2\\.0$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^npm install -g vercel$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^cd \"c:\\\\Users\\\\vitob\\\\Desktop\\\\bot telegram\\\\matrice visual\" ; git add vercel\\.json ; git commit -m \"chore: aggiungi vercel\\.json per deploy amatriciana\" ; git push$/": {
+				"approve": true,
+				"matchCommandLine": true
 			}
 		}
 	}

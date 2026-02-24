@@ -1126,7 +1126,30 @@
       .cal-month-filter { display: none !important; }
     }
 
-    /* ===== TEAM ===== */
+    /* ===== ADMIN ===== */
+    .admin-badge{
+      display:inline-flex; align-items:center; gap:5px;
+      font-size:11px; font-weight:900; padding:3px 9px;
+      border-radius:8px; letter-spacing:0.3px;
+    }
+    .admin-badge.on{ background:rgba(20,184,166,0.15); color:#14b8a6; border:1px solid rgba(20,184,166,0.3); }
+    .admin-badge.off{ background:rgba(148,163,184,0.10); color:var(--muted); border:1px solid var(--stroke); }
+    .admin-badge i{ font-size:10px; }
+    /* Admin lock button accent */
+    .icon-btn.locked{ border-color: rgba(245,158,11,0.4); }
+    .icon-btn.locked i{ color:#f59e0b; }
+    .icon-btn.unlocked{ border-color: rgba(20,184,166,0.4); }
+    .icon-btn.unlocked i{ color:#14b8a6; }
+    /* Time search */
+    .search-time-input{
+      width:110px; flex-shrink:0;
+      padding:10px 12px; border-radius:12px;
+      background:var(--input); border:1px solid var(--stroke);
+      color:var(--fg); font-size:14px; font-family:inherit; font-weight:700;
+    }
+    .search-time-input:focus{ outline:none; border-color:rgba(92,155,255,0.5); }
+    .badge-active{ background:rgba(92,155,255,0.15); color:#5c9bff; border:1px solid rgba(92,155,255,0.3); }
+    .badge-offshift{ background:rgba(148,163,184,0.12); color:var(--muted); border:1px solid var(--stroke); }
     .team-list{ display:flex; flex-direction:column; gap:8px; }
     .colleague-row{
       display:flex; align-items:center; gap:12px;
@@ -1418,34 +1441,40 @@
       <!-- Team card -->
       <section class="card">
         <div class="card-head">
-          <div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
             <div class="card-title">Team</div>
-            <div class="card-sub">Carica la matrice dei colleghi.</div>
+            <span id="adminBadge" class="admin-badge off"><i class="fa-solid fa-lock"></i> Area admin</span>
           </div>
-          <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega">
-            <i class="fa-solid fa-user-plus"></i>
-          </button>
+          <div style="display:flex;gap:6px;align-items:center;">
+            <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
+              <i class="fa-solid fa-lock"></i>
+            </button>
+            <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega" style="display:none;">
+              <i class="fa-solid fa-user-plus"></i>
+            </button>
+          </div>
         </div>
         <div class="card-body">
           <div class="team-list" id="teamList">
             <div class="note" id="teamEmpty" style="color:var(--muted); font-size:13px;">
-              <i class="fa-regular fa-users" style="margin-right:6px;"></i>Nessun collega ancora. Premi <b>+</b> per aggiungerne uno.
+              <i class="fa-regular fa-users" style="margin-right:6px;"></i>Nessun collega nel team.
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Cerca per data -->
+      <!-- Cerca per data e orario -->
       <section class="card">
         <div class="card-head">
           <div>
-            <div class="card-title">Cerca per data</div>
-            <div class="card-sub">Chi lavora (o è libero) in un giorno specifico?</div>
+            <div class="card-title">Cerca per orario</div>
+            <div class="card-sub">Chi è in turno in un giorno e orario specifico?</div>
           </div>
         </div>
         <div class="card-body">
           <div class="search-date-bar">
-            <input type="date" class="search-date-input" id="searchDateInput" />
+            <input type="date" class="search-date-input" id="searchDateInput" style="flex:1;" />
+            <input type="time" class="search-time-input" id="searchTimeInput" />
             <button class="icon-btn" id="searchDateBtn" type="button" aria-label="Cerca">
               <i class="fa-solid fa-magnifying-glass"></i>
             </button>
@@ -1457,6 +1486,27 @@
   </div>
 
   <!-- Modals -->
+
+  <!-- Modal login admin -->
+  <div class="modal" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
+    <div class="modal-sheet">
+      <div class="modal-head">
+        <div class="modal-title" id="adminModalTitle"><i class="fa-solid fa-shield-halved" style="margin-right:6px;color:#f59e0b;"></i>Accesso admin</div>
+        <button class="icon-btn" id="closeAdminModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="modal-field">
+          <label>Password</label>
+          <input class="modal-text-input" id="adminPassInput" type="password" placeholder="••••••••" autocomplete="current-password" />
+          <div id="adminPassError" style="font-size:12px; color:#f87171; display:none; margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> Password errata.</div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary-lg" id="cancelAdminBtn" type="button">Annulla</button>
+        <button class="btn-primary-lg" id="confirmAdminBtn" type="button">Accedi</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal collega -->
   <div class="modal" id="colleagueModal" role="dialog" aria-modal="true" aria-labelledby="colleagueModalTitle">
@@ -2358,6 +2408,78 @@ function buildHolidayMapForYear(year){
       document.getElementById('generateBtn' ).disabled = !ok;
     }
 
+    // ===== ADMIN =====
+    // Cambia questa password per proteggere il pannello admin
+    const ADMIN_PASS = 'admin1234';
+
+    function isAdminSession(){
+      try{ return sessionStorage.getItem('adminSession') === '1'; } catch(e){ return false; }
+    }
+    function setAdminSession(v){
+      try{ if(v) sessionStorage.setItem('adminSession','1'); else sessionStorage.removeItem('adminSession'); } catch(e){}
+    }
+
+    function updateAdminUI(){
+      const isAdmin = isAdminSession();
+      // Badge
+      const badge = document.getElementById('adminBadge');
+      if(badge){
+        badge.className = 'admin-badge ' + (isAdmin ? 'on' : 'off');
+        badge.innerHTML = isAdmin
+          ? '<i class="fa-solid fa-unlock"></i> Admin attivo'
+          : '<i class="fa-solid fa-lock"></i> Area admin';
+      }
+      // Lock button
+      const lockBtn = document.getElementById('adminLockBtn');
+      if(lockBtn){
+        lockBtn.className = 'icon-btn ' + (isAdmin ? 'unlocked' : 'locked');
+        lockBtn.title = isAdmin ? 'Esci da admin' : 'Accedi come admin';
+        lockBtn.querySelector('i').className = isAdmin ? 'fa-solid fa-unlock' : 'fa-solid fa-lock';
+      }
+      // Add button
+      const addBtn = document.getElementById('addColleagueBtn');
+      if(addBtn) addBtn.style.display = isAdmin ? '' : 'none';
+      // Re-render team list per mostrare/nascondere edit+delete
+      renderTeamList();
+    }
+
+    function bindAdminModal(){
+      const modal = document.getElementById('adminModal');
+      document.getElementById('closeAdminModal').addEventListener('click', ()=>closeModal('adminModal'));
+      document.getElementById('cancelAdminBtn').addEventListener('click', ()=>closeModal('adminModal'));
+      modal.addEventListener('click', e=>{ if(e.target.id==='adminModal') closeModal('adminModal'); });
+
+      const passInput = document.getElementById('adminPassInput');
+      const errEl = document.getElementById('adminPassError');
+
+      document.getElementById('confirmAdminBtn').addEventListener('click', ()=>{
+        if(passInput.value === ADMIN_PASS){
+          setAdminSession(true);
+          errEl.style.display = 'none';
+          passInput.value = '';
+          closeModal('adminModal');
+          updateAdminUI();
+        } else {
+          errEl.style.display = 'block';
+          passInput.focus();
+        }
+      });
+      passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('confirmAdminBtn').click(); });
+
+      document.getElementById('adminLockBtn').addEventListener('click', ()=>{
+        if(isAdminSession()){
+          setAdminSession(false);
+          updateAdminUI();
+        } else {
+          document.getElementById('adminPassError').style.display = 'none';
+          document.getElementById('adminPassInput').value = '';
+          openModal('adminModal');
+          setTimeout(()=>document.getElementById('adminPassInput').focus(), 80);
+        }
+      });
+    }
+    // ===== FINE ADMIN =====
+
     // ===== TEAM & CERCA PER DATA =====
 
     // Costruisce la matrice per un config arbitrario (non usa state globale)
@@ -2416,7 +2538,7 @@ function buildHolidayMapForYear(year){
       const list = document.getElementById('teamList');
       const empty = document.getElementById('teamEmpty');
       if(!list) return;
-      // Rimuove righe precedenti ma mantiene #teamEmpty
+      const isAdmin = isAdminSession();
       Array.from(list.children).forEach(c => { if(c.id !== 'teamEmpty') c.remove(); });
 
       if(!state.colleghi.length){
@@ -2441,17 +2563,19 @@ function buildHolidayMapForYear(year){
             <div class="colleague-name">${escapeHtml(c.name)}</div>
             <div class="colleague-meta">${metaParts.join(' · ')}</div>
           </div>
-          <div class="colleague-actions">
+          <div class="colleague-actions" ${isAdmin ? '' : 'style="display:none"'}>
             <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
             <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
           </div>`;
 
-        row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
-        row.querySelector('.del').addEventListener('click', () => {
-          state.colleghi = state.colleghi.filter(x => x.id !== c.id);
-          saveColleghi();
-          renderTeamList();
-        });
+        if(isAdmin){
+          row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
+          row.querySelector('.del').addEventListener('click', () => {
+            state.colleghi = state.colleghi.filter(x => x.id !== c.id);
+            saveColleghi();
+            renderTeamList();
+          });
+        }
         list.appendChild(row);
       });
     }
@@ -2645,8 +2769,19 @@ function buildHolidayMapForYear(year){
       });
     }
 
-    // Cerca chi lavora in un dato giorno
-    function renderSearchResults(targetISO){
+    // Controlla se un orario (HH:MM) cade dentro il turno [start, end)
+    function timeInShift(start, end, query){
+      if(!start || !end || !query) return false;
+      const s = timeToMinutes(start);
+      const e = (end === '00:00') ? 1440 : timeToMinutes(end);
+      const q = timeToMinutes(query);
+      if(s < e) return q >= s && q < e;
+      // Turno che attraversa la mezzanotte
+      return q >= s || q < e;
+    }
+
+    // Cerca chi lavora in un dato giorno (e opzionalmente a un dato orario)
+    function renderSearchResults(targetISO, queryTime){
       const el = document.getElementById('searchResults');
       if(!el) return;
       el.style.display = 'block';
@@ -2656,10 +2791,11 @@ function buildHolidayMapForYear(year){
       const head = document.createElement('div');
       head.className = 'search-head-row';
       const dateObj = parseISODate(targetISO);
-      head.innerHTML = `<i class="fa-regular fa-calendar"></i>${dateObj.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`;
+      const dateLabel = dateObj.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+      head.innerHTML = `<i class="fa-regular fa-calendar"></i>${dateLabel}${queryTime ? ` &nbsp;<i class="fa-regular fa-clock" style="margin-left:4px"></i> ${queryTime}` : ''}`;
       el.appendChild(head);
 
-      // Soggetti da controllare: collega corrente (se generato) + team
+      // Soggetti: tu (se generato) + team
       const subjects = [];
       if(state.generated && state.startWeekISO && state.anchorPatternIndex !== null){
         subjects.push({
@@ -2680,8 +2816,8 @@ function buildHolidayMapForYear(year){
       subjects.forEach(s => {
         const day = getScheduleOnDate(s.cfg, targetISO);
         const initial = s.name.charAt(0).toUpperCase();
-
         let badgeClass, badgeText, timeText = '';
+
         if(!day){
           badgeClass = 'badge-out'; badgeText = 'Fuori periodo';
         } else if(day.isHoliday){
@@ -2689,7 +2825,18 @@ function buildHolidayMapForYear(year){
         } else if(day.isRest){
           badgeClass = 'badge-rest'; badgeText = 'Libero';
         } else {
-          badgeClass = 'badge-work'; badgeText = 'Lavora'; timeText = `${day.start}–${day.end}`;
+          // Giorno lavorativo
+          timeText = `${day.start}–${day.end}`;
+          if(queryTime){
+            // Con filtro orario
+            if(timeInShift(day.start, day.end, queryTime)){
+              badgeClass = 'badge-active'; badgeText = 'In turno ✔';
+            } else {
+              badgeClass = 'badge-offshift'; badgeText = 'Fuori orario';
+            }
+          } else {
+            badgeClass = 'badge-work'; badgeText = 'Lavora';
+          }
         }
 
         const row = document.createElement('div');
@@ -2704,29 +2851,35 @@ function buildHolidayMapForYear(year){
     }
 
     function bindSearchByDate(){
-      const input = document.getElementById('searchDateInput');
+      const dateInput = document.getElementById('searchDateInput');
+      const timeInput = document.getElementById('searchTimeInput');
       const btn = document.getElementById('searchDateBtn');
-      if(!input || !btn) return;
+      if(!dateInput || !btn) return;
 
-      // Precompila con oggi
-      input.value = isoDate(new Date());
+      // Precompila con oggi e ora attuale
+      dateInput.value = isoDate(new Date());
+      const now = new Date();
+      timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
 
       const doSearch = () => {
-        if(!input.value) return;
-        renderSearchResults(input.value);
+        if(!dateInput.value) return;
+        const qt = timeInput && timeInput.value ? timeInput.value : null;
+        renderSearchResults(dateInput.value, qt);
       };
 
       btn.addEventListener('click', doSearch);
-      input.addEventListener('change', doSearch);
-      input.addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
+      dateInput.addEventListener('change', doSearch);
+      timeInput.addEventListener('change', doSearch);
+      dateInput.addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
     }
 
     function initTeam(){
       // Carica colleghi da localStorage
       try{ state.colleghi = JSON.parse(safeStorageGet('colleghi') || '[]'); } catch(e){ state.colleghi = []; }
-      renderTeamList();
 
-      // Pulsante aggiungi
+      bindAdminModal();
+      updateAdminUI();
+
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.addEventListener('click', () => openColleagueModal(null));
 
