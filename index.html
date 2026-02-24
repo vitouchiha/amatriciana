@@ -1535,7 +1535,7 @@
       </section>
 
       <!-- Scambi Orari -->
-      <section class="card" id="swapCard">
+      <section class="card" id="swapCard" style="display:none;">
         <div class="card-head">
           <div>
             <div class="card-title">Scambi Orari</div>
@@ -1574,7 +1574,7 @@
       </section>
 
       <!-- Trova Collega -->
-      <section class="card" id="findColleagueCard">
+      <section class="card" id="findColleagueCard" style="display:none;">
         <div class="card-head">
           <div>
             <div class="card-title">Trova Collega</div>
@@ -1615,6 +1615,22 @@
   </div>
 
   <!-- Modals -->
+
+  <!-- Modal matrice collega -->
+  <div class="modal" id="colleagueMatrixModal" role="dialog" aria-modal="true">
+    <div class="modal-sheet modal-sheet-scroll" style="width:min(720px,100%);">
+      <div class="modal-head">
+        <div class="modal-title" id="colleagueMatrixTitle">Matrice collega</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PNG" title="Salva PNG">
+            <i class="fa-solid fa-download"></i>
+          </button>
+          <button class="icon-btn" id="closeColleagueMatrixModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div style="padding:10px 14px 18px;" id="colleagueMatrixBody"></div>
+    </div>
+  </div>
 
   <!-- Dialog selezione settimana -->
   <dialog id="weekCalModal" class="week-cal-dialog">
@@ -2698,6 +2714,11 @@ function buildHolidayMapForYear(year){
       // Add button
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.style.display = isAdmin ? '' : 'none';
+      // Admin-only cards
+      const swapC = document.getElementById('swapCard');
+      const findC = document.getElementById('findColleagueCard');
+      if(swapC) swapC.style.display = isAdmin ? '' : 'none';
+      if(findC) findC.style.display = isAdmin ? '' : 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
     }
@@ -2824,15 +2845,20 @@ function buildHolidayMapForYear(year){
         row.className = 'colleague-row';
         row.innerHTML = `
           <div class="colleague-avatar">${initial}</div>
-          <div class="colleague-info">
+          <div class="colleague-info" style="cursor:pointer;flex:1;min-width:0;">
             <div class="colleague-name">${escapeHtml(c.name)}</div>
             <div class="colleague-meta">${metaParts.join(' · ')}</div>
           </div>
-          <div class="colleague-actions" ${isAdmin ? '' : 'style="display:none"'}>
-            <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
-            <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <button class="btn-icon-sm view" title="Vedi matrice" data-id="${c.id}"><i class="fa-solid fa-eye"></i></button>
+            <div class="colleague-actions" ${isAdmin ? '' : 'style="display:none"'}>
+              <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+            </div>
           </div>`;
 
+        row.querySelector('.view').addEventListener('click', () => openColleagueMatrix(c));
+        row.querySelector('.colleague-info').addEventListener('click', () => openColleagueMatrix(c));
         if(isAdmin){
           row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
           row.querySelector('.del').addEventListener('click', () => {
@@ -2845,6 +2871,135 @@ function buildHolidayMapForYear(year){
       });
       refreshSwapReadiness();
     }
+
+    // ===== MATRICE COLLEGA =====
+    let _viewedColleague = null;
+
+    function openColleagueMatrix(c){
+      if(!c || !c.startWeekISO || c.anchorPatternIndex === null) {
+        toast('Configurazione incompleta', 'Questo collega non ha una matrice configurata.'); return;
+      }
+      _viewedColleague = c;
+      const title = document.getElementById('colleagueMatrixTitle');
+      if(title) title.textContent = `Matrice di ${c.name}`;
+
+      const body = document.getElementById('colleagueMatrixBody');
+      if(body){
+        body.innerHTML = '';
+        // Render calendar for this colleague
+        const node = buildCalendarExportNodeForCfg(c);
+        node.style.cssText = 'font-family:inherit; display:flex; flex-direction:column; gap:14px; padding:0;';
+        // Override card width for screen display
+        Array.from(node.children).forEach(card => { card.style.width = '100%'; });
+        body.appendChild(node);
+      }
+      openModal('colleagueMatrixModal');
+    }
+
+    function buildCalendarExportNodeForCfg(cfg){
+      const weeks     = buildMatrixDataForConfig(cfg);
+      const todayISO  = isoDate(new Date());
+      const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+      const monthMap  = new Map();
+      weeks.forEach(w => {
+        w.days.forEach(d => {
+          const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
+          if(!monthMap.has(key)) monthMap.set(key, []);
+          monthMap.get(key).push(d);
+        });
+      });
+      const container = document.createElement('div');
+      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:8px; width:700px;';
+      monthMap.forEach((days, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const monthName = MONTHS[m-1] + ' ' + y;
+        const firstOfMonth = new Date(y, m-1, 1);
+        const dowFirst = firstOfMonth.getDay();
+        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1;
+        const dayByISO = new Map();
+        days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
+        const daysInMonth = new Date(y, m, 0).getDate();
+        let workDays = 0;
+        for(let day = 1; day <= daysInMonth; day++){
+          const iso = isoDate(new Date(y, m-1, day));
+          const d = dayByISO.get(iso);
+          if(d && !d.isRest && !d.isHoliday) workDays++;
+        }
+        const totalMins = workDays * (cfg.durationMinutes || 0);
+        const totH = Math.floor(totalMins / 60), totM = totalMins % 60;
+        const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' '+totM+'m' : ''}` : '—';
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:100%;';
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:900; font-size:14px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.14),rgba(123,97,255,0.09)); border-bottom:1px solid #e2e8f0;';
+        titleEl.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
+        card.appendChild(titleEl);
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #e2e8f0;';
+        DOW_LABELS.forEach((dl, i) => {
+          const dow = document.createElement('div');
+          dow.style.cssText = `text-align:center; font-size:10px; font-weight:900; color:#64748b; padding:7px 2px; border-right:${i<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:#f8fafc;`;
+          dow.textContent = dl; grid.appendChild(dow);
+        });
+        for(let i = 0; i < offsetMon; i++){
+          const e = document.createElement('div');
+          e.style.cssText = `min-height:64px; border-right:${(i%7)<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
+          grid.appendChild(e);
+        }
+        for(let day = 1; day <= daysInMonth; day++){
+          const dateObj = new Date(y, m-1, day);
+          const iso = isoDate(dateObj);
+          const d = dayByISO.get(iso);
+          const isToday = iso === todayISO;
+          const colPos = (offsetMon + day - 1) % 7;
+          const isLast = colPos === 6;
+          const bg = d ? (d.isRest ? 'rgba(239,68,68,0.04)' : d.isHoliday ? 'rgba(239,68,68,0.07)' : '#fff') : 'rgba(0,0,0,0.012)';
+          const cell = document.createElement('div');
+          cell.style.cssText = `min-height:64px; padding:5px 4px; border-right:${isLast?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:${bg};`;
+          const numEl = document.createElement('div');
+          numEl.style.cssText = `font-size:11px; font-weight:900; color:${isToday?'#5c9bff':'#94a3b8'}; line-height:1; margin-bottom:1px;`;
+          numEl.textContent = day; cell.appendChild(numEl);
+          if(d){
+            if(d.isRest){ const lib=document.createElement('div'); lib.style.cssText='font-size:10px;font-weight:900;color:#ef4444;'; lib.textContent='LIBERO'; cell.appendChild(lib); }
+            else if(d.isHoliday){
+              const t=document.createElement('div'); t.style.cssText='font-size:11px;font-weight:900;color:#ef4444;'; t.textContent=d.start; cell.appendChild(t);
+              const te=document.createElement('div'); te.style.cssText='font-size:10px;font-weight:700;color:#ef4444;'; te.textContent=d.end; cell.appendChild(te);
+              const hn=document.createElement('div'); hn.style.cssText='font-size:9px;font-weight:900;color:#ef4444;line-height:1.2;word-break:break-word;'; hn.textContent=d.holidayName; cell.appendChild(hn);
+            } else {
+              const t=document.createElement('div'); t.style.cssText='font-size:11px;font-weight:900;color:#1e293b;'; t.textContent=d.start; cell.appendChild(t);
+              const te=document.createElement('div'); te.style.cssText='font-size:10px;font-weight:700;color:#64748b;'; te.textContent=d.end; cell.appendChild(te);
+            }
+          }
+          grid.appendChild(cell);
+        }
+        const rem = (offsetMon + daysInMonth) % 7;
+        if(rem !== 0) for(let i=0;i<7-rem;i++){ const e=document.createElement('div'); const cp=(offsetMon+daysInMonth+i)%7; e.style.cssText=`min-height:64px;border-right:${cp===6?'0':'1px solid #e2e8f0'};border-bottom:1px solid #e2e8f0;background:rgba(0,0,0,0.012);`; grid.appendChild(e); }
+        card.appendChild(grid);
+        container.appendChild(card);
+      });
+      return container;
+    }
+
+    async function saveColleaguePng(){
+      if(!_viewedColleague){ return; }
+      const btn = document.getElementById('saveCollegueMatrixBtn');
+      if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-spinner fa-spin'; }
+      try{
+        const node = buildCalendarExportNodeForCfg(_viewedColleague);
+        node.style.position = 'fixed'; node.style.left = '-99999px'; node.style.top = '0';
+        document.body.appendChild(node);
+        const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale: Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
+        node.remove();
+        const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 1.0));
+        _downloadBlob(blob, `matrice-${(_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-')}.png`);
+        toast('Salvata!', `matrice-${_viewedColleague.name}.png`);
+      } catch(e){
+        toast('Errore', 'Export non riuscito.');
+      } finally {
+        if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-download'; }
+      }
+    }
+    // ===== FINE MATRICE COLLEGA =====
 
     // Genera ID unico
     function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
@@ -3778,134 +3933,9 @@ function buildHolidayMapForYear(year){
 
     // --------- Export (PNG) ---------
     // Costruisce un nodo calendario completamente con stili inline per html2canvas
+    // Export matrice propria: delega a buildCalendarExportNodeForCfg con configurazione corrente
     function buildCalendarExportNode(){
-      const weeks = buildMatrixData();
-      const todayISO = isoDate(new Date());
-      const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
-
-      const monthMap = new Map();
-      weeks.forEach(w => {
-        w.days.forEach(d => {
-          const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
-          if(!monthMap.has(key)) monthMap.set(key, []);
-          monthMap.get(key).push(d);
-        });
-      });
-
-      const container = document.createElement('div');
-      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:8px; width:700px;';
-
-      monthMap.forEach((days, key) => {
-        const [y, m] = key.split('-').map(Number);
-        const monthName = MONTHS[m-1] + ' ' + y;
-        const firstOfMonth = new Date(y, m-1, 1);
-        const dowFirst = firstOfMonth.getDay();
-        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1;
-        const dayByISO = new Map();
-        days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
-        const daysInMonth = new Date(y, m, 0).getDate();
-
-        let workDays = 0;
-        for(let day = 1; day <= daysInMonth; day++){
-          const iso = isoDate(new Date(y, m-1, day));
-          const d = dayByISO.get(iso);
-          if(d && !d.isRest && !d.isHoliday) workDays++;
-        }
-        const totalMins = workDays * (state.durationMinutes || 0);
-        const totH = Math.floor(totalMins / 60);
-        const totM = totalMins % 60;
-        const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' ' + totM + 'm' : ''}` : '—';
-
-        const card = document.createElement('div');
-        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:100%;';
-
-        const titleEl = document.createElement('div');
-        titleEl.style.cssText = 'font-weight:900; font-size:14px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.14),rgba(123,97,255,0.09)); border-bottom:1px solid #e2e8f0;';
-        titleEl.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
-        card.appendChild(titleEl);
-
-        const grid = document.createElement('div');
-        grid.style.cssText = 'display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #e2e8f0;';
-
-        DOW_LABELS.forEach((dl, i) => {
-          const dow = document.createElement('div');
-          dow.style.cssText = `text-align:center; font-size:10px; font-weight:900; color:#64748b; padding:7px 2px; border-right:${i<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:#f8fafc; letter-spacing:0.3px;`;
-          dow.textContent = dl;
-          grid.appendChild(dow);
-        });
-
-        for(let i = 0; i < offsetMon; i++){
-          const empty = document.createElement('div');
-          const col = i % 7;
-          empty.style.cssText = `min-height:64px; border-right:${col<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
-          grid.appendChild(empty);
-        }
-
-        for(let day = 1; day <= daysInMonth; day++){
-          const dateObj = new Date(y, m-1, day);
-          const iso = isoDate(dateObj);
-          const d = dayByISO.get(iso);
-          const isToday = iso === todayISO;
-          const colPos = (offsetMon + day - 1) % 7;
-          const isLast = colPos === 6;
-          let bg = d ? (d.isRest ? 'rgba(239,68,68,0.04)' : d.isHoliday ? 'rgba(239,68,68,0.07)' : '#fff') : 'rgba(0,0,0,0.012)';
-          const cell = document.createElement('div');
-          cell.style.cssText = `min-height:64px; padding:5px 4px; border-right:${isLast?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:${bg};`;
-
-          const numEl = document.createElement('div');
-          numEl.style.cssText = `font-size:11px; font-weight:900; color:${isToday?'#5c9bff':'#94a3b8'}; line-height:1; margin-bottom:1px;`;
-          numEl.textContent = day;
-          cell.appendChild(numEl);
-
-          if(d){
-            if(d.isRest){
-              const lib = document.createElement('div');
-              lib.style.cssText = 'font-size:10px; font-weight:900; color:#ef4444; letter-spacing:0.1px;';
-              lib.textContent = 'LIBERO';
-              cell.appendChild(lib);
-            } else if(d.isHoliday){
-              const t = document.createElement('div');
-              t.style.cssText = 'font-size:11px; font-weight:900; color:#ef4444; line-height:1.15;';
-              t.textContent = d.start;
-              cell.appendChild(t);
-              const te = document.createElement('div');
-              te.style.cssText = 'font-size:10px; font-weight:700; color:#ef4444;';
-              te.textContent = d.end;
-              cell.appendChild(te);
-              const hn = document.createElement('div');
-              hn.style.cssText = 'font-size:9px; font-weight:900; color:#ef4444; line-height:1.2; word-break:break-word;';
-              hn.textContent = d.holidayName;
-              cell.appendChild(hn);
-            } else {
-              const t = document.createElement('div');
-              t.style.cssText = 'font-size:11px; font-weight:900; color:#1e293b; line-height:1.15;';
-              t.textContent = d.start;
-              cell.appendChild(t);
-              const te = document.createElement('div');
-              te.style.cssText = 'font-size:10px; font-weight:700; color:#64748b;';
-              te.textContent = d.end;
-              cell.appendChild(te);
-            }
-          }
-          grid.appendChild(cell);
-        }
-
-        const totalCells = offsetMon + daysInMonth;
-        const rem = totalCells % 7;
-        if(rem !== 0){
-          for(let i = 0; i < 7 - rem; i++){
-            const colPos2 = (totalCells + i) % 7;
-            const isLast2 = colPos2 === 6;
-            const empty = document.createElement('div');
-            empty.style.cssText = `min-height:64px; border-right:${isLast2?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
-            grid.appendChild(empty);
-          }
-        }
-        card.appendChild(grid);
-        container.appendChild(card);
-      });
-
-      return container;
+      return buildCalendarExportNodeForCfg(buildCfgFromState());
     }
 
     function buildExportNode(){
@@ -4189,6 +4219,11 @@ function buildHolidayMapForYear(year){
 
       // Export buttons
       document.getElementById('saveTopBtn').addEventListener('click', savePng);
+
+      // Matrice collega: close + backdrop + save
+      document.getElementById('closeColleagueMatrixModal').addEventListener('click', ()=> closeModal('colleagueMatrixModal'));
+      document.getElementById('saveCollegueMatrixBtn').addEventListener('click', saveColleaguePng);
+      document.getElementById('colleagueMatrixModal').addEventListener('click', e=>{ if(e.target.id==='colleagueMatrixModal') closeModal('colleagueMatrixModal'); });
 
       // Stampa: mostra solo vista attiva, apri tutti i details
       window.addEventListener('beforeprint', () => {
