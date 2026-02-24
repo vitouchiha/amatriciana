@@ -1126,6 +1126,49 @@
       .cal-month-filter { display: none !important; }
     }
 
+    /* ===== INLINE CALENDAR (selezione settimana) ===== */
+    .ical-wrap{
+      background:var(--input); border:1px solid var(--stroke);
+      border-radius:14px; padding:12px 10px 8px; max-width:290px;
+      user-select:none;
+    }
+    .ical-nav{
+      display:flex; align-items:center; justify-content:space-between;
+      margin-bottom:8px; gap:4px;
+    }
+    .ical-nav-btn{
+      background:var(--card); border:1px solid var(--stroke); border-radius:8px;
+      color:var(--fg); cursor:pointer; font-size:15px; font-weight:900;
+      padding:3px 10px; line-height:1.4; transition:background .15s;
+    }
+    .ical-nav-btn:hover{ background:var(--accent); color:#fff; border-color:var(--accent); }
+    .ical-month-label{
+      font-weight:900; font-size:13px; color:var(--fg); flex:1; text-align:center;
+    }
+    .ical-dow-row,.ical-days-grid{
+      display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
+    }
+    .ical-dow{
+      text-align:center; font-size:10px; font-weight:700;
+      color:var(--muted); padding:2px 0 5px;
+    }
+    .ical-day{
+      aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+      border-radius:5px; font-size:12px; font-weight:600; cursor:pointer;
+      transition:background .1s; position:relative; color:var(--fg);
+    }
+    .ical-day:hover{ background:rgba(92,155,255,0.18); }
+    .ical-day.other-month{ opacity:.28; }
+    .ical-day.today::after{
+      content:''; position:absolute; bottom:2px; left:50%;
+      transform:translateX(-50%); width:4px; height:4px;
+      border-radius:50%; background:var(--accent);
+    }
+    .ical-day.sel-week{ background:rgba(92,155,255,0.18); color:var(--accent); font-weight:900; }
+    .ical-day.sel-week-start{ border-radius:6px 0 0 6px; background:var(--accent); color:#fff; }
+    .ical-day.sel-week-end{ border-radius:0 6px 6px 0; background:rgba(92,155,255,0.25); }
+    .ical-day.sel-week-mid{ border-radius:0; }
+
     /* ===== ADMIN ===== */
     .admin-badge{
       display:inline-flex; align-items:center; gap:5px;
@@ -1354,30 +1397,24 @@
               </div>
             </div>
 
-            <!-- Step 3: Mese -->
-            <div class="ctrl-item">
-              <div id="step-month-input">
-                <span class="control-label">Mese</span>
-                <button class="select-like" id="monthBtn" type="button" disabled>
-                  <span class="select-like__left"><i class="fa-solid fa-calendar-days"></i><span id="monthBtnLabel">Seleziona</span></span>
-                  <i class="fa-solid fa-chevron-down"></i>
-                </button>
-              </div>
-              <div id="step-month-sum" class="step-sum">
-                <i class="fa-solid fa-calendar-days step-sum-icon"></i>
-                <span class="step-sum-text" id="step-month-text"></span>
-                <button class="step-edit-btn" id="step-month-edit" type="button">Modifica</button>
-              </div>
-            </div>
-
-            <!-- Step 4: Settimana -->
-            <div class="ctrl-item">
+            <!-- Step 3+4: Settimana di partenza (calendario inline) -->
+            <div class="ctrl-item" style="align-items:flex-start;">
               <div id="step-week-input">
-                <span class="control-label">Settimana</span>
-                <button class="select-like" id="weekBtn" type="button" disabled>
-                  <span class="select-like__left"><span id="weekBtnLabel">Seleziona</span></span>
-                  <i class="fa-solid fa-chevron-down"></i>
-                </button>
+                <span class="control-label">Settimana di partenza</span>
+                <div class="ical-wrap" id="icalWrap">
+                  <div class="ical-nav">
+                    <button class="ical-nav-btn" id="calPrev" type="button">&#8249;</button>
+                    <span class="ical-month-label" id="calMonthLabel"></span>
+                    <button class="ical-nav-btn" id="calNext" type="button">&#8250;</button>
+                  </div>
+                  <div class="ical-dow-row">
+                    <div class="ical-dow">Lun</div><div class="ical-dow">Mar</div>
+                    <div class="ical-dow">Mer</div><div class="ical-dow">Gio</div>
+                    <div class="ical-dow">Ven</div><div class="ical-dow">Sab</div>
+                    <div class="ical-dow">Dom</div>
+                  </div>
+                  <div class="ical-days-grid" id="calDaysGrid"></div>
+                </div>
               </div>
               <div id="step-week-sum" class="step-sum">
                 <i class="fa-solid fa-calendar-week step-sum-icon"></i>
@@ -1558,26 +1595,6 @@
       </div>
     </div>
   </div>
-  <div class="modal" id="monthModal" role="dialog" aria-modal="true" aria-labelledby="monthTitle">
-    <div class="modal-sheet">
-      <div class="modal-head">
-        <div class="modal-title" id="monthTitle">Seleziona mese di partenza</div>
-        <button class="icon-btn" id="closeMonthModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-list" id="monthList"></div>
-    </div>
-  </div>
-
-  <div class="modal" id="weekModal" role="dialog" aria-modal="true" aria-labelledby="weekTitle">
-    <div class="modal-sheet">
-      <div class="modal-head">
-        <div class="modal-title" id="weekTitle">Seleziona settimana</div>
-        <button class="icon-btn" id="closeWeekModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-list" id="weekList"></div>
-    </div>
-  </div>
-
   <div class="modal" id="optionModal" role="dialog" aria-modal="true" aria-labelledby="optionTitle">
     <div class="modal-sheet">
       <div class="modal-head">
@@ -2273,72 +2290,102 @@ function buildHolidayMapForYear(year){
       return ALL_WEEKS.filter(w => w.monthsTouched.has(state.startMonth));
     }
 
-    function initMonthModal(){
-      const list = document.getElementById('monthList');
-      list.innerHTML = '';
-      MONTHS.forEach((m, idx)=>{
-        const b = document.createElement('button');
-        b.type='button';
-        b.className='modal-item';
-        b.innerHTML = `${m}<div class="sub">Seleziona un mese per trovare la settimana di partenza</div>`;
-        b.setAttribute('aria-current', state.startMonth === idx ? 'true' : 'false');
-        b.addEventListener('click', ()=>{
-          state.startMonth = idx;
-          localStorage.setItem('startMonth', String(idx));
+    function initMonthModal(){ /* rimossa - ora si usa il calendario inline */ }
+    function initWeekModal(){   /* rimossa - ora si usa il calendario inline */ }
 
-          // Se la settimana attuale non tocca il mese, metti la prima disponibile
-          const possible = weeksForSelectedMonth();
-          if(possible.length){
-            const touches = state.startWeekISO ? possible.some(w => w.iso === state.startWeekISO) : false;
-            if(!touches){
-              state.startWeekISO = possible[0].iso;
-              localStorage.setItem('startWeekISO', state.startWeekISO);
-            }
+    // ===== CALENDARIO INLINE per selezione settimana di partenza =====
+    let _icalYear, _icalMonth;
+
+    function _isoMonday(date){
+      const d = new Date(date.getTime());
+      const dow = d.getDay();
+      const diff = (dow === 0) ? -6 : 1 - dow;
+      d.setDate(d.getDate() + diff);
+      return isoDate(d);
+    }
+
+    function renderInlineCal(){
+      const grid   = document.getElementById('calDaysGrid');
+      const label  = document.getElementById('calMonthLabel');
+      if(!grid) return;
+
+      label.textContent = MONTHS[_icalMonth] + ' ' + _icalYear;
+      grid.innerHTML = '';
+
+      const todayIso   = isoDate(new Date());
+      const selMonday  = state.startWeekISO;
+      const selStart   = selMonday ? parseISODate(selMonday) : null;
+      const selEndDate = selStart  ? addDays(selStart, 6)    : null;
+      const selEndIso  = selEndDate ? isoDate(selEndDate) : null;
+
+      // Giorno della settimana del 1° del mese (0=Lun..6=Dom)
+      const firstDow = (()=>{ const fd = new Date(_icalYear, _icalMonth, 1).getDay(); return fd === 0 ? 6 : fd - 1; })();
+      const daysInPrev = new Date(_icalYear, _icalMonth, 0).getDate();
+      const daysInCur  = new Date(_icalYear, _icalMonth + 1, 0).getDate();
+
+      const makeDay = (num, dateObj, extraClass) => {
+        const iso = isoDate(dateObj);
+        const el  = document.createElement('div');
+        el.className = 'ical-day';
+        el.textContent = num;
+        if(extraClass) el.classList.add('other-month');
+        if(iso === todayIso) el.classList.add('today');
+        if(selStart && selEndDate){
+          const d = dateObj;
+          if(d >= selStart && d <= selEndDate){
+            if(iso === isoDate(selStart)) el.classList.add('sel-week','sel-week-start');
+            else if(iso === selEndIso)    el.classList.add('sel-week','sel-week-end');
+            else                          el.classList.add('sel-week','sel-week-mid');
           }
-
+        }
+        el.addEventListener('click', ()=>{
+          const monday = _isoMonday(dateObj);
+          state.startWeekISO = monday;
+          state.startMonth   = parseISODate(monday).getMonth();
+          localStorage.setItem('startWeekISO', monday);
+          localStorage.setItem('startMonth', String(state.startMonth));
+          const wl = weekLabel(parseISODate(monday));
+          stepDone('week', wl);
           updateRefLabels();
-          closeModal('monthModal');
+          renderInlineCal();
           if(state.generated) render();
+          else { stepOpen('option'); updateGenerateEnabled(); }
+          fbSave();
         });
-        list.appendChild(b);
-      });
+        return el;
+      };
+
+      for(let i = firstDow - 1; i >= 0; i--)
+        grid.appendChild(makeDay(daysInPrev - i, new Date(_icalYear, _icalMonth - 1, daysInPrev - i), true));
+      for(let d = 1; d <= daysInCur; d++)
+        grid.appendChild(makeDay(d, new Date(_icalYear, _icalMonth, d), false));
+      const filled = grid.children.length;
+      const remaining = (Math.ceil(filled / 7) * 7) - filled;
+      for(let d = 1; d <= remaining; d++)
+        grid.appendChild(makeDay(d, new Date(_icalYear, _icalMonth + 1, d), true));
     }
 
-    function initWeekModal(){
-      const list = document.getElementById('weekList');
-      list.innerHTML = '';
+    function initInlineCal(){
+      const now = new Date();
+      _icalYear  = state.startWeekISO ? parseISODate(state.startWeekISO).getFullYear() : now.getFullYear();
+      _icalMonth = state.startWeekISO ? parseISODate(state.startWeekISO).getMonth()    : now.getMonth();
 
-      const possible = weeksForSelectedMonth();
-      if(!possible.length){
-        const info = document.createElement('div');
-        info.className = 'modal-item';
-        info.style.cursor = 'default';
-        info.innerHTML = `Seleziona prima un mese<div class="sub">Poi potrai scegliere la settimana.</div>`;
-        list.appendChild(info);
-        return;
-      }
-
-      possible.forEach((w)=>{
-        const b = document.createElement('button');
-        b.type='button';
-        b.className='modal-item';
-        b.innerHTML = `${w.label}<div class="sub">${w.iso} (lun)</div>`;
-        b.setAttribute('aria-current', state.startWeekISO === w.iso ? 'true' : 'false');
-        b.addEventListener('click', ()=>{
-          state.startWeekISO = w.iso;
-          localStorage.setItem('startWeekISO', state.startWeekISO);
-          updateRefLabels();
-          closeModal('weekModal');
-
-          // Collassa step settimana, riapri opzione
-          stepDone('week', w.label);
-          stepOpen('option');
-
-          if(state.generated) render();
-        });
-        list.appendChild(b);
+      document.getElementById('calPrev').addEventListener('click', ()=>{
+        _icalMonth--; if(_icalMonth < 0){ _icalMonth = 11; _icalYear--; }
+        renderInlineCal();
       });
+      document.getElementById('calNext').addEventListener('click', ()=>{
+        _icalMonth++; if(_icalMonth > 11){ _icalMonth = 0; _icalYear++; }
+        renderInlineCal();
+      });
+
+      const editBtn = document.getElementById('step-week-edit');
+      if(editBtn) editBtn.addEventListener('click', ()=>{ stepOpen('week'); updateRefButtonsEnabled(); });
+
+      renderInlineCal();
+      if(state.startWeekISO) stepDone('week', weekLabel(parseISODate(state.startWeekISO)));
     }
+    // ===== FINE CALENDARIO INLINE =====
 
     function optionText(entry){
       return `${entry.startTime} — ${restLabel(entry.restDays)}`;
@@ -2370,24 +2417,10 @@ function buildHolidayMapForYear(year){
 
     function updateRefButtonsEnabled(){
       const enabled = !!state.role && !!state.durationMinutes;
-      document.getElementById('monthBtn').disabled = !enabled;
-      document.getElementById('weekBtn').disabled = !enabled || state.startMonth === null;
       document.getElementById('optionBtn').disabled = !enabled || !state.startWeekISO;
     }
 
     function updateRefLabels(){
-      // Mese
-      const mLabel = document.getElementById('monthBtnLabel');
-      mLabel.textContent = (state.startMonth === null) ? 'Seleziona mese' : MONTHS[state.startMonth];
-
-      // Settimana
-      const wLabel = document.getElementById('weekBtnLabel');
-      if(state.startWeekISO){
-        wLabel.textContent = weekLabel(parseISODate(state.startWeekISO));
-      } else {
-        wLabel.textContent = 'Seleziona settimana';
-      }
-
       // Opzione
       const oLabel = document.getElementById('optionLabel');
       if(state.anchorPatternIndex !== null){
@@ -2396,20 +2429,17 @@ function buildHolidayMapForYear(year){
         oLabel.textContent = 'Seleziona orario';
       }
 
-      // Hint sintetico (nascosto, mantenuto per compatibilità)
       const hintRow = document.getElementById('refHintRow');
       if(hintRow) hintRow.style.display = 'none';
 
-      initMonthModal();
-      initWeekModal();
       initOptionModal();
       updateRefButtonsEnabled();
       updateGenerateEnabled();
     }
     // --------- Hours ---------
     function updateGenerateEnabled(){
-      const ok = !!state.role && !!state.durationMinutes && state.startMonth !== null && state.startWeekISO && state.anchorPatternIndex !== null;
-      document.getElementById('generateBtn' ).disabled = !ok;
+      const ok = !!state.role && !!state.durationMinutes && !!state.startWeekISO && state.anchorPatternIndex !== null;
+      document.getElementById('generateBtn').disabled = !ok;
     }
 
     // ===== FIREBASE =====
@@ -3022,26 +3052,13 @@ function buildHolidayMapForYear(year){
     }
     function syncStepsFromState(){
       // Ruolo
-      if(state.role){
-        const roleLabel = state.role === 'tutor' ? 'Tutor' : 'Dipendente';
-        stepDone('role', roleLabel);
-      } else { stepOpen('role'); }
+      if(state.role){ stepDone('role', state.role === 'tutor' ? 'Tutor' : 'Dipendente'); } else { stepOpen('role'); }
       // Ore
-      if(state.durationKey){
-        stepDone('hours', prettyDuration(state.durationKey));
-      } else { stepOpen('hours'); }
-      // Mese
-      if(state.startMonth !== null){
-        stepDone('month', MONTHS[state.startMonth]);
-      } else { stepOpen('month'); }
-      // Settimana
-      if(state.startWeekISO){
-        stepDone('week', weekLabel(parseISODate(state.startWeekISO)));
-      } else { stepOpen('week'); }
+      if(state.durationKey){ stepDone('hours', prettyDuration(state.durationKey)); } else { stepOpen('hours'); }
+      // Settimana (calendario inline)
+      if(state.startWeekISO){ stepDone('week', weekLabel(parseISODate(state.startWeekISO))); } else { stepOpen('week'); }
       // Opzione
-      if(state.anchorPatternIndex !== null){
-        stepDone('option', optionText(ACTIVE_PATTERN[state.anchorPatternIndex]));
-      } else { stepOpen('option'); }
+      if(state.anchorPatternIndex !== null){ stepDone('option', optionText(ACTIVE_PATTERN[state.anchorPatternIndex])); } else { stepOpen('option'); }
     }
 
     function initRole(){
@@ -3430,18 +3447,13 @@ function buildHolidayMapForYear(year){
       // Team e cerca per data
       initTeam();
 
-      // Labels/modals (dipendono da ore + mese + settimana)
+      // Calendario inline settimana
+      initInlineCal();
+
+      // Labels/modals (dipendono da ore + settimana)
       updateRefLabels();
 
       // Open/close modals
-      document.getElementById('monthBtn').addEventListener('click', ()=>{ if(!document.getElementById('monthBtn').disabled){ initMonthModal(); openModal('monthModal'); }});
-      document.getElementById('closeMonthModal').addEventListener('click', ()=>closeModal('monthModal'));
-      document.getElementById('monthModal').addEventListener('click', (e)=>{ if(e.target.id==='monthModal') closeModal('monthModal'); });
-
-      document.getElementById('weekBtn').addEventListener('click', ()=>{ if(!document.getElementById('weekBtn').disabled){ initWeekModal(); openModal('weekModal'); }});
-      document.getElementById('closeWeekModal').addEventListener('click', ()=>closeModal('weekModal'));
-      document.getElementById('weekModal').addEventListener('click', (e)=>{ if(e.target.id==='weekModal') closeModal('weekModal'); });
-
       document.getElementById('optionBtn').addEventListener('click', ()=>{ if(!document.getElementById('optionBtn').disabled){ initOptionModal(); openModal('optionModal'); }});
       document.getElementById('closeOptionModal').addEventListener('click', ()=>closeModal('optionModal'));
       document.getElementById('optionModal').addEventListener('click', (e)=>{ if(e.target.id==='optionModal') closeModal('optionModal'); });
@@ -3466,8 +3478,9 @@ function buildHolidayMapForYear(year){
         state.startMonth = parseISODate(BASE_START_ISO).getMonth();
         state.startWeekISO = BASE_START_ISO;
 
-        // Riapri tutti gli step
-        ['role','hours','month','week','option'].forEach(s => stepOpen(s));
+        // Riapri step rilevanti
+        ['role','hours','week','option'].forEach(s => stepOpen(s));
+        renderInlineCal();
 
         localStorage.removeItem('operatorRole');
         localStorage.removeItem('durationKey');
@@ -3535,24 +3548,13 @@ function buildHolidayMapForYear(year){
         if(state.generated) render();
       });
 
-      // Edit buttons per mese, settimana, opzione
-      const mEdit = document.getElementById('step-month-edit');
-      if(mEdit) mEdit.addEventListener('click', ()=>{
-        stepOpen('month');
-        // Anche settimana torna a essere visibile
-        if(state.startMonth !== null){ stepOpen('week'); }
-        updateRefButtonsEnabled();
-      });
-      const wEdit = document.getElementById('step-week-edit');
-      if(wEdit) wEdit.addEventListener('click', ()=>{
-        stepOpen('week');
-        updateRefButtonsEnabled();
-      });
+      // Edit button opzione
       const oEdit = document.getElementById('step-option-edit');
       if(oEdit) oEdit.addEventListener('click', ()=>{
         stepOpen('option');
         updateRefButtonsEnabled();
       });
+      // (step-week-edit è gestito dentro initInlineCal)
 
       // Riconcilia stato UI con stato salvato in localStorage
       syncStepsFromState();
