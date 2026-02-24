@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"/^cd \"c:\\\\Users\\\\vitob\\\\Desktop\\\\bot telegram\\\\matrice visual\" ; git init ; git add \\. ; git commit -m \"feat: matrice orari v1\\.2\\.0 - generazione fino a fine anno per Dipendente e Tutor\"$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		}
+	}
+}
