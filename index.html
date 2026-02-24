@@ -74,92 +74,94 @@
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
-      top: calc(env(safe-area-inset-top) + 12px);
+      top: calc(env(safe-area-inset-top) + 10px);
       z-index: 9999;
-      /* make it a longer rectangle matching the app width */
-      width: calc(100% - 48px);
+      width: calc(100% - 32px);
       max-width: 1100px;
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:18px;
-      padding:12px 20px;
-      border-radius: 12px; /* less rounded for a more rectangular look */
+      gap: 12px;
+      padding: 10px 16px;
+      border-radius: 16px;
       background: var(--card);
       box-shadow: var(--shadow-soft);
       border: 1px solid var(--stroke);
-      backdrop-filter: blur(14px);
+      backdrop-filter: blur(18px);
     }
-    .brand{display:flex; align-items:center; gap:12px; min-width:0;}
+    .brand{display:flex; align-items:center; gap:10px; min-width:0; flex: 0 0 auto;}
     .brand-icon{
-      width:44px; height:44px; border-radius: 14px;
+      width:38px; height:38px; border-radius: 12px;
       display:grid; place-items:center;
-      background: linear-gradient(135deg, rgba(92,155,255,0.28), rgba(123,97,255,0.22));
+      background: linear-gradient(135deg, rgba(92,155,255,0.32), rgba(123,97,255,0.26));
       border: 1px solid var(--stroke);
       flex: 0 0 auto;
+      font-size: 18px;
     }
-    .brand h1{
-      margin:0; font-size: 16px; line-height: 1.15;
-      letter-spacing: -0.2px;
+    .brand-text{ display:flex; flex-direction:column; gap:1px; min-width:0; }
+    .brand-text h1{
+      margin:0; font-size: 14px; font-weight: 900; line-height: 1.15;
+      letter-spacing: -0.3px;
       white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
     }
-    .brand small{
-      display:block; font-size: 12px; color: var(--muted);
-      margin-top: 2px;
+    .brand-text small{
+      display:block; font-size: 11px; color: var(--muted); font-weight: 700;
       white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
     }
 
+    /* Gruppi pulsanti nella topbar */
     .top-actions{
       display: flex;
-      justify-content: center;
       align-items: center;
-      gap: 20px; /* Increase spacing between buttons */
-      flex-wrap: wrap; /* Allow buttons to wrap to the next line on smaller screens */
+      gap: 6px;
+      flex-shrink: 0;
     }
-    .icon-btn{
-      width:50px; /* Increase button size */
-      height:50px;
-      border-radius:50%; /* Make buttons circular */
-      display:flex;
-      justify-content:center;
-      align-items:center;
-      font-size:18px; /* Increase icon size */
+    .tbtn-group{
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 14px;
+      background: rgba(0,0,0,0.04);
+      border: 1px solid var(--stroke);
     }
-    .icon-btn i{
-      font-size: 20px; /* Adjust icon size */
+    html[data-theme="dark"] .tbtn-group{ background: rgba(255,255,255,0.04); }
+    .tbtn-sep{
+      width: 1px; height: 22px;
+      background: var(--stroke);
+      margin: 0 4px;
+      flex-shrink: 0;
     }
-
-    .center-controls{
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      display:flex;
-      gap: 12px;
-      align-items:center;
-      z-index: 60;
+    .ctrl{ display:flex; flex-direction:column; gap:3px; align-items:center; }
+    .ctrl .label{
+      font-size: 10px; font-weight: 800; color: var(--muted);
+      line-height: 1; letter-spacing: 0.2px;
+      transition: color 0.2s;
     }
-    .center-controls .ctrl{
-      display:flex; flex-direction:column; gap:6px; align-items:center; font-weight:700;
-      color: var(--muted); font-size:12px;
-    }
-    .center-controls .ctrl .label{font-size:11px; color:var(--muted);}
     /* topbar position handled above (fixed) */
     .icon-btn{
-      width:42px; height:42px; border-radius: 14px;
+      width:36px; height:36px; border-radius: 10px;
       border: 1px solid var(--stroke);
       background: rgba(255,255,255,0.30);
       display:grid; place-items:center;
-      box-shadow: 0 10px 18px rgba(0,0,0,0.10);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.07);
       cursor:pointer;
       user-select:none;
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
       position: relative;
       overflow:hidden;
+      flex-shrink: 0;
     }
-    html[data-theme="dark"] .icon-btn{background: rgba(0,0,0,0.18);}
+    html[data-theme="dark"] .icon-btn{background: rgba(0,0,0,0.22);}
+    .icon-btn i{ font-size: 15px; }
     .icon-btn:active{transform: translateY(1px);}
+    /* Accento per save/share */
+    .icon-btn.btn-save{ background: linear-gradient(135deg,rgba(20,184,166,0.18),rgba(92,155,255,0.14)); border-color: rgba(20,184,166,0.30); }
+    .icon-btn.btn-share{ background: linear-gradient(135deg,rgba(92,155,255,0.18),rgba(123,97,255,0.14)); border-color: rgba(92,155,255,0.30); }
+    html[data-theme="dark"] .icon-btn.btn-save{ background: linear-gradient(135deg,rgba(20,184,166,0.22),rgba(92,155,255,0.16)); }
+    html[data-theme="dark"] .icon-btn.btn-share{ background: linear-gradient(135deg,rgba(92,155,255,0.22),rgba(123,97,255,0.18)); }
+    .icon-btn:disabled{ opacity: 0.40; cursor: not-allowed; }
     .ripple{
       position:absolute; border-radius: 999px; transform: translate(-50%,-50%);
       pointer-events:none;
@@ -176,7 +178,7 @@
     main{padding-top: 14px;}
 
     /* When topbar is fixed, add top padding so content isn't covered */
-    .app-shell{padding-top: calc(72px + env(safe-area-inset-top));}
+    .app-shell{padding-top: calc(64px + env(safe-area-inset-top));}  
 
     .grid{
       display:grid;
@@ -1051,15 +1053,13 @@
     html[data-theme="light"] .topbar{ background: var(--card); border:1px solid rgba(11,16,32,0.04); }
 
 
-    /* Responsive: piccoli schermi - rendi i pulsanti più compatti */
+    /* Responsive: piccoli schermi */
     @media (max-width: 520px){
-      .topbar{ padding:8px 12px; }
-      .top-actions{ gap:10px; }
-      .icon-btn{ width:36px; height:36px; border-radius:10px; font-size:14px; }
-      .icon-btn i{ font-size:16px; }
-      .brand-icon{ width:36px; height:36px; border-radius:10px; }
-      .top-actions .label{ display:none; }
-      .brand h1{ font-size:14px; }
+      .topbar{ padding:8px 10px; gap:8px; }
+      .brand-text{ display:none; }
+      .icon-btn{ width:32px; height:32px; border-radius:9px; }
+      .icon-btn i{ font-size:13px; }
+      .ctrl .label{ display:none; }
     }
 
     /* Evidenzia riga/cella corrente nella tabella */
@@ -1114,7 +1114,7 @@
     /* CSS Stampa */
     @media print {
       body { background: #fff !important; padding: 0 !important; padding-bottom: 0 !important; }
-      .topbar, .bottom-bar, #bottomBar, .toast, .card-head button, #generateBtn, #resetBtn, .row-actions { display: none !important; }
+      .topbar, .top-actions, .toast, .card-head button, #generateBtn, #resetBtn, .row-actions { display: none !important; }
       .card:first-child .card-body { display: none !important; }
       .app-shell { padding-top: 0 !important; }
       .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; background: #fff !important; backdrop-filter: none !important; }
@@ -1137,36 +1137,58 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-icon" aria-hidden="true"></div>
-        <!-- Titolo rimosso -->
+        <div class="brand-icon" aria-hidden="true">📅</div>
+        <div class="brand-text">
+          <h1>Matrice Orari</h1>
+          <small id="brandSub">Seleziona ruolo e orario</small>
+        </div>
       </div>
 
       <div class="top-actions" role="group" aria-label="Azioni principali">
-        <div class="ctrl">
-          <button class="icon-btn" id="viewToggle" type="button" aria-label="Cambia vista">
-            <i class="fa-solid fa-layer-group"></i>
-          </button>
-          <span class="label" id="viewLabel">Tabella</span>
+        <!-- Gruppo vista -->
+        <div class="tbtn-group">
+          <div class="ctrl">
+            <button class="icon-btn" id="viewToggle" type="button" aria-label="Cambia vista">
+              <i class="fa-solid fa-layer-group"></i>
+            </button>
+            <span class="label" id="viewLabel">Tabella</span>
+          </div>
+          <div class="ctrl">
+            <button class="icon-btn" id="todayBtn" type="button" aria-label="Vai ad oggi">
+              <i class="fa-solid fa-calendar-day"></i>
+            </button>
+            <span class="label">Oggi</span>
+          </div>
         </div>
-        <div class="ctrl">
-          <button class="icon-btn" id="todayBtn" type="button" aria-label="Vai ad oggi">
-            <i class="fa-solid fa-calendar-day"></i>
-          </button>
-          <span class="label">Oggi</span>
+
+        <div class="tbtn-sep"></div>
+
+        <!-- Gruppo utility -->
+        <div class="tbtn-group">
+          <div class="ctrl">
+            <button class="icon-btn" id="themeToggle" type="button" aria-label="Tema">
+              <i class="fa-solid fa-gear"></i>
+            </button>
+            <span class="label">Tema</span>
+          </div>
         </div>
-        <div class="ctrl">
-          <button class="icon-btn" id="themeToggle" type="button" aria-label="Tema">
-            <i class="fa-solid fa-gear"></i>
-          </button>
-          <span class="label">Tema</span>
-        </div>
-        <div class="ctrl">
-          <button class="icon-btn" id="saveTopBtn" type="button" title="Salva immagine matrice" aria-label="Salva" onclick="document.getElementById('savePngBtn').click()"><i class="fa-solid fa-download"></i></button>
-          <span class="label">Salva</span>
-        </div>
-        <div class="ctrl">
-          <button class="icon-btn" id="shareTopBtn" type="button" title="Condividi" aria-label="Condividi" onclick="document.getElementById('shareBtn').click()"><i class="fa-solid fa-share-nodes"></i></button>
-          <span class="label">Share</span>
+
+        <div class="tbtn-sep"></div>
+
+        <!-- Gruppo export -->
+        <div class="tbtn-group">
+          <div class="ctrl">
+            <button class="icon-btn btn-save" id="saveTopBtn" type="button" aria-label="Salva PNG" disabled>
+              <i class="fa-solid fa-download"></i>
+            </button>
+            <span class="label">Salva</span>
+          </div>
+          <div class="ctrl">
+            <button class="icon-btn btn-share" id="shareTopBtn" type="button" aria-label="Condividi" disabled>
+              <i class="fa-solid fa-share-nodes"></i>
+            </button>
+            <span class="label">Share</span>
+          </div>
         </div>
       </div>
     </header>
@@ -1239,12 +1261,12 @@
       </section>
 
       <section class="card">
-        <div class="card-head">
+        <div class="card-head" style="border-bottom:0; padding-bottom:8px;">
           <div>
-            <div class="card-title">Anteprima</div>
-            <div class="card-sub">Festività in rosso con nome.</div>
+            <div class="card-title" style="display:block !important; font-size:13px; font-weight:900; opacity:0.7;">Anteprima</div>
           </div>
-        </div><button class="icon-btn" id="previewTopBtn" type="button" aria-label="Torna su"><i class="fa-solid fa-arrow-up"></i></button>
+          <button class="icon-btn" id="previewTopBtn" type="button" aria-label="Torna su"><i class="fa-solid fa-arrow-up"></i></button>
+        </div>
         <div class="card-body">
           <div class="preview-wrap" id="previewWrap">
             <div class="matrix-container" id="matrixTableWrap" aria-label="Matrice orari"></div>
@@ -1258,13 +1280,6 @@
         </div>
       </section>
     </main>
-  </div>
-
-  <div class="bottom-bar" id="bottomBar" style="display:none;">
-    <div class="bottom-bar__inner" style="display:none;">
-      <button class="cta cta-save" id="savePngBtn" disabled style="display:none;"><i class="fa-solid fa-download"></i> Salva PNG</button>
-      <button class="cta cta-share" id="shareBtn" disabled style="display:none;"><i class="fa-solid fa-share-nodes"></i> Condividi</button>
-    </div>
   </div>
 
   <!-- Modals -->
@@ -1898,12 +1913,13 @@ function buildHolidayMapForYear(year){
     function render(){
       const previewWrap = document.getElementById('previewWrap');
       const empty = document.getElementById('emptyPreview');
-      const bottomBar = document.getElementById('bottomBar');
-
       if(!state.generated){
         previewWrap.classList.remove('is-visible');
         empty.style.display = 'flex';
-        bottomBar.style.display = 'none';
+        const saveBtn = document.getElementById('saveTopBtn');
+        const shareBtn2 = document.getElementById('shareTopBtn');
+        if(saveBtn) saveBtn.disabled = true;
+        if(shareBtn2) shareBtn2.disabled = true;
         return;
       }
 
@@ -1925,11 +1941,20 @@ function buildHolidayMapForYear(year){
 
       previewWrap.classList.add('is-visible');
       empty.style.display = 'none';
-      bottomBar.style.display = 'block';
 
-      // enable actions if we have duration minutes
-      document.getElementById('savePngBtn').disabled = !state.durationMinutes;
-      document.getElementById('shareBtn').disabled = !state.durationMinutes;
+      // Abilita/disabilita tasti export nella topbar
+      const canExport = !!state.durationMinutes;
+      const saveBtn = document.getElementById('saveTopBtn');
+      const shareBtn = document.getElementById('shareTopBtn');
+      if(saveBtn) saveBtn.disabled = !canExport;
+      if(shareBtn) shareBtn.disabled = !canExport;
+
+      // Aggiorna sottotitolo brand
+      const sub = document.getElementById('brandSub');
+      if(sub && state.role && state.durationKey){
+        const roleLabel = state.role === 'tutor' ? 'Tutor' : 'Dipendente';
+        sub.textContent = `${roleLabel} · ${state.durationKey} · ${computeTotalWeeks()} settimane`;
+      }
     }
 
     // --------- Modals & selettori ---------
@@ -2340,48 +2365,69 @@ function buildHolidayMapForYear(year){
     }
 
     async function savePng(){
+      const btn = document.getElementById('saveTopBtn');
+      if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
         const blob = await exportPngBlob();
         if(!blob) throw new Error('Export fallito');
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
         const fileLabel = { table: 'tabella', cards: 'schede', calendar: 'calendario' }[state.viewMode] || 'vista';
-        a.download = `matrice-orari-${fileLabel}.png`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 1200);
-        // toast removed for save action per user preference
+        _downloadBlob(blob, `matrice-orari-${fileLabel}.png`);
+        toast('Salvata!', `matrice-orari-${fileLabel}.png`);
       } catch(err){
-        // toast removed for save error per user preference
+        toast('Errore', 'Impossibile esportare.');
+      } finally {
+        if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-download'; }
       }
     }
 
     async function sharePng(){
+      // Mostra feedback immediato
+      const btn = document.getElementById('shareTopBtn');
+      if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
         const blob = await exportPngBlob();
         if(!blob) throw new Error('Export fallito');
-        const file = new File([blob], 'matrice-orari.png', { type: 'image/png' });
+        const fileLabel = { table: 'tabella', cards: 'schede', calendar: 'calendario' }[state.viewMode] || 'vista';
+        const fileName = `matrice-orari-${fileLabel}.png`;
+        const file = new File([blob], fileName, { type: 'image/png' });
 
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            title: 'Matrice Orari',
-            text: 'Ecco la matrice orari (PNG).',
-            files: [file]
-          });
-          // toast removed for share action per user preference
-        } else if (navigator.share) {
-          // Fallback: share without file, but still download
-          await savePng();
-          // toast removed for share fallback per user preference
+        // 1. Web Share API con file (mobile / Safari / Chrome Android)
+        if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
+          await navigator.share({ title: 'Matrice Orari', files: [file] });
+
+        // 2. Clipboard API (desktop Chrome/Edge)
+        } else if(navigator.clipboard && window.ClipboardItem){
+          try{
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': blob })
+            ]);
+            toast('Copiata!', 'Immagine copiata negli appunti — incollala dove vuoi.');
+          } catch(clipErr){
+            // clipboard fallback: download
+            await _downloadBlob(blob, fileName);
+            toast('Salvata', 'Immagine scaricata — aprila e condividila.');
+          }
+
+        // 3. Fallback universale: download diretto
         } else {
-          await savePng();
-          // toast removed for share fallback per user preference
+          await _downloadBlob(blob, fileName);
+          toast('Salvata', 'Immagine scaricata — aprila e condividila.');
         }
       } catch(err){
-        // user cancelled share or something; toast removed per user preference
+        if(err && err.name !== 'AbortError'){
+          toast('Errore', 'Impossibile condividere. Prova Salva.');
+        }
+      } finally {
+        if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-share-nodes'; }
       }
+    }
+
+    function _downloadBlob(blob, fileName){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = fileName;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url), 1200);
     }
 
     // --------- Events wiring ---------
@@ -2525,9 +2571,9 @@ function buildHolidayMapForYear(year){
         });
       }
 
-      // Export buttons
-      document.getElementById('savePngBtn').addEventListener('click', savePng);
-      document.getElementById('shareBtn').addEventListener('click', sharePng);
+      // Export buttons — ora direttamente sui tasti topbar
+      document.getElementById('saveTopBtn').addEventListener('click', savePng);
+      document.getElementById('shareTopBtn').addEventListener('click', sharePng);
 
       // Tasto Oggi
       const todayBtn = document.getElementById('todayBtn');
