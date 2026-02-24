@@ -1127,6 +1127,101 @@
       .cal-month-filter { display: none !important; }
     }
 
+    /* ===== TEAM ===== */
+    .team-list{ display:flex; flex-direction:column; gap:8px; }
+    .colleague-row{
+      display:flex; align-items:center; gap:12px;
+      padding:10px 14px; border-radius:14px;
+      background: var(--input); border:1px solid var(--stroke);
+    }
+    .colleague-avatar{
+      width:36px; height:36px; border-radius:50%;
+      display:grid; place-items:center;
+      font-weight:900; font-size:15px; flex-shrink:0;
+      background: linear-gradient(135deg,rgba(92,155,255,0.28),rgba(123,97,255,0.28));
+      text-transform:uppercase; color: var(--fg);
+      border:1px solid var(--stroke);
+    }
+    .colleague-info{ flex:1; min-width:0; }
+    .colleague-name{ font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .colleague-meta{ font-size:11px; color:var(--muted); margin-top:2px; }
+    .colleague-actions{ display:flex; gap:4px; flex-shrink:0; }
+    .btn-icon-sm{
+      width:30px; height:30px; border-radius:8px; border:1px solid var(--stroke);
+      background:none; cursor:pointer; display:grid; place-items:center;
+      font-size:12px; color:var(--muted); transition:background 0.15s,color 0.15s;
+    }
+    .btn-icon-sm:hover{ background:var(--stroke); color:var(--fg); }
+    .btn-icon-sm.del:hover{ background:rgba(239,68,68,0.14); color:#f87171; border-color:rgba(239,68,68,0.3); }
+
+    /* ===== SEARCH ===== */
+    .search-date-bar{ display:flex; gap:8px; align-items:center; }
+    .search-date-input{
+      flex:1; padding:10px 14px; border-radius:12px;
+      background:var(--input); border:1px solid var(--stroke);
+      color:var(--fg); font-size:14px; font-family:inherit; font-weight:700;
+    }
+    .search-date-input:focus{ outline:none; border-color:rgba(92,155,255,0.5); }
+    .search-results{ display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+    .sr-row{
+      display:flex; align-items:center; gap:10px;
+      padding:10px 14px; border-radius:12px;
+      background:var(--input); border:1px solid var(--stroke);
+    }
+    .sr-avatar{
+      width:32px; height:32px; border-radius:50%;
+      display:grid; place-items:center; font-size:13px; font-weight:900;
+      background:linear-gradient(135deg,rgba(92,155,255,0.22),rgba(123,97,255,0.22));
+      border:1px solid var(--stroke); flex-shrink:0; text-transform:uppercase;
+    }
+    .sr-name{ font-size:13px; font-weight:800; flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .sr-badge{
+      font-size:12px; font-weight:700; padding:3px 10px;
+      border-radius:8px; flex-shrink:0; white-space:nowrap;
+    }
+    .badge-work{ background:rgba(20,184,166,0.15); color:#14b8a6; border:1px solid rgba(20,184,166,0.3); }
+    .badge-rest{ background:rgba(245,158,11,0.12); color:#f59e0b; border:1px solid rgba(245,158,11,0.25); }
+    .badge-holiday{ background:rgba(239,68,68,0.12); color:#ef4444; border:1px solid rgba(239,68,68,0.2); }
+    .badge-out{ background:rgba(148,163,184,0.12); color:var(--muted); border:1px solid var(--stroke); }
+    .sr-time{ font-size:12px; color:var(--muted); white-space:nowrap; }
+    .search-head-row{
+      display:flex; align-items:center; gap:8px;
+      padding:6px 0 10px;
+      font-size:12px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:0.4px;
+    }
+    .search-head-row i{ font-size:13px; }
+    .no-results-note{ font-size:13px; color:var(--muted); padding:8px 0; }
+
+    /* ===== COLLEAGUE MODAL ===== */
+    .modal-form{ padding:14px; display:flex; flex-direction:column; gap:14px; }
+    .modal-field{ display:flex; flex-direction:column; gap:6px; }
+    .modal-field label{ font-size:11px; font-weight:900; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px; }
+    .modal-text-input{
+      padding:10px 14px; border-radius:12px;
+      background:var(--input); border:1px solid var(--stroke);
+      color:var(--fg); font-family:inherit; font-size:15px; font-weight:700;
+    }
+    .modal-text-input:focus{ outline:none; border-color:rgba(92,155,255,0.55); }
+    .modal-select{
+      padding:10px 14px; border-radius:12px;
+      background:var(--input); border:1px solid var(--stroke);
+      color:var(--fg); font-family:inherit; font-size:14px; font-weight:700;
+    }
+    .modal-select:focus{ outline:none; border-color:rgba(92,155,255,0.55); }
+    .modal-actions{ display:flex; gap:8px; padding:0 14px 14px; }
+    .btn-primary-lg{
+      flex:1; padding:12px; border-radius:12px; cursor:pointer;
+      background:linear-gradient(135deg,rgba(92,155,255,0.88),rgba(123,97,255,0.88));
+      border:none; color:#fff; font-weight:900; font-size:14px; font-family:inherit;
+    }
+    .btn-primary-lg:disabled{ opacity:0.42; cursor:not-allowed; }
+    .btn-secondary-lg{
+      padding:12px 20px; border-radius:12px; cursor:pointer;
+      background:var(--input); border:1px solid var(--stroke);
+      color:var(--fg); font-weight:800; font-size:14px; font-family:inherit;
+    }
+    .modal-sheet-scroll{ max-height:85vh; overflow-y:auto; }
+
 </style>
 </head>
 
@@ -1318,10 +1413,101 @@
           </div>
         </div>
       </section>
+
+      <!-- Team card -->
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Team</div>
+            <div class="card-sub">Carica la matrice dei colleghi.</div>
+          </div>
+          <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega">
+            <i class="fa-solid fa-user-plus"></i>
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="team-list" id="teamList">
+            <div class="note" id="teamEmpty" style="color:var(--muted); font-size:13px;">
+              <i class="fa-regular fa-users" style="margin-right:6px;"></i>Nessun collega ancora. Premi <b>+</b> per aggiungerne uno.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cerca per data -->
+      <section class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Cerca per data</div>
+            <div class="card-sub">Chi lavora (o è libero) in un giorno specifico?</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="search-date-bar">
+            <input type="date" class="search-date-input" id="searchDateInput" />
+            <button class="icon-btn" id="searchDateBtn" type="button" aria-label="Cerca">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+          </div>
+          <div class="search-results" id="searchResults" style="display:none;"></div>
+        </div>
+      </section>
     </main>
   </div>
 
   <!-- Modals -->
+
+  <!-- Modal collega -->
+  <div class="modal" id="colleagueModal" role="dialog" aria-modal="true" aria-labelledby="colleagueModalTitle">
+    <div class="modal-sheet modal-sheet-scroll">
+      <div class="modal-head">
+        <div class="modal-title" id="colleagueModalTitle">Aggiungi collega</div>
+        <button class="icon-btn" id="closeColleagueModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-form">
+        <div class="modal-field">
+          <label>Nome</label>
+          <input class="modal-text-input" id="colleagueName" type="text" placeholder="Es. Violetta" autocomplete="off" maxlength="40" />
+        </div>
+        <div class="modal-field">
+          <label>Ruolo</label>
+          <div class="segmented" id="cRoleSegment" role="group">
+            <button type="button" data-role="dipendente" aria-pressed="false">Dipendente</button>
+            <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label>Monte ore</label>
+          <div class="segmented" id="cHoursSegment" role="group">
+            <button type="button" data-hours="4h" aria-pressed="false">4h</button>
+            <button type="button" data-hours="6h" aria-pressed="false">6h</button>
+            <button type="button" data-hours="6h40" aria-pressed="false">6h 40m</button>
+            <button type="button" data-hours="7h55" aria-pressed="false">7h 55m</button>
+          </div>
+        </div>
+        <div class="modal-field">
+          <label>Anno</label>
+          <select class="modal-select" id="cYearSelect"></select>
+        </div>
+        <div class="modal-field">
+          <label>Mese di partenza</label>
+          <select class="modal-select" id="cMonthSelect"></select>
+        </div>
+        <div class="modal-field">
+          <label>Settimana di partenza</label>
+          <select class="modal-select" id="cWeekSelect"></select>
+        </div>
+        <div class="modal-field">
+          <label>Opzione orario</label>
+          <select class="modal-select" id="cOptionSelect"></select>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary-lg" id="cancelColleagueBtn" type="button">Annulla</button>
+        <button class="btn-primary-lg" id="saveColleagueBtn" type="button">Salva</button>
+      </div>
+    </div>
+  </div>
   <div class="modal" id="monthModal" role="dialog" aria-modal="true" aria-labelledby="monthTitle">
     <div class="modal-sheet">
       <div class="modal-head">
@@ -1682,6 +1868,7 @@ function buildHolidayMapForYear(year){
       anchorPatternIndex: null,   // 0..17 (orario + riposi della settimana di partenza)
       generated: false,
       viewMode: 'table',
+      colleghi: [],               // array di {id, name, role, durationKey, durationMinutes, startWeekISO, anchorPatternIndex}
     };
 
     // --------- Matrix generation ---------
@@ -2170,7 +2357,384 @@ function buildHolidayMapForYear(year){
       document.getElementById('generateBtn' ).disabled = !ok;
     }
 
-    // --------- Step helpers ---------
+    // ===== TEAM & CERCA PER DATA =====
+
+    // Costruisce la matrice per un config arbitrario (non usa state globale)
+    function buildMatrixDataForConfig(cfg){
+      const pattern = cfg.role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
+      const specialOvr = cfg.role === 'tutor' ? {} : DIPENDENTE_SPECIAL_START_OVERRIDES;
+      const baseStart = parseISODate(cfg.startWeekISO);
+      const totalWeeks = computeTutorWeekCount(cfg.startWeekISO);
+      const endWindow = addDays(baseStart, (totalWeeks - 1) * 7 + 6);
+      const years = new Set();
+      for(let y = baseStart.getFullYear(); y <= endWindow.getFullYear(); y++) years.add(y);
+      const hMaps = {};
+      years.forEach(y => hMaps[y] = buildHolidayMapForYear(y));
+      const anchor = cfg.anchorPatternIndex !== null ? cfg.anchorPatternIndex : 0;
+      const weeks = [];
+      for(let wi = 0; wi < totalWeeks; wi++){
+        const weekStart = addDays(baseStart, wi * 7);
+        const pIdx = (anchor + wi) % pattern.length;
+        const pat = pattern[pIdx];
+        const days = [];
+        for(let di = 0; di < 7; di++){
+          const dayName = DAYS[di];
+          const dateObj = addDays(weekStart, di);
+          const isRest = pat.restDays.includes(dayName);
+          const entry = pattern[pIdx];
+          const rawStart = ((entry.overrides || {})[dayName]) || ((specialOvr[pIdx] || {})[dayName]) || entry.startTime;
+          const se = computeStartEnd(rawStart, cfg.durationMinutes || 0);
+          const y = dateObj.getFullYear();
+          const holidayName = hMaps[y] ? hMaps[y].get(isoDate(dateObj)) : null;
+          days.push({ dayName, dateObj, isRest, start: se.start, end: se.end, isHoliday: !!holidayName, holidayName });
+        }
+        weeks.push({ weekIndex: wi, patternIndex: pIdx, weekStart, days });
+      }
+      return weeks;
+    }
+
+    // Ritorna il giorno specifico nella matrice di un collega (o null se fuori range)
+    function getScheduleOnDate(cfg, targetISO){
+      if(!cfg || !cfg.startWeekISO || cfg.anchorPatternIndex === null) return null;
+      const weeks = buildMatrixDataForConfig(cfg);
+      for(const w of weeks){
+        for(const d of w.days){
+          if(isoDate(d.dateObj) === targetISO) return d;
+        }
+      }
+      return null;
+    }
+
+    // Salva colleghi su localStorage
+    function saveColleghi(){
+      safeStorageSet('colleghi', JSON.stringify(state.colleghi));
+    }
+
+    // Renderizza la lista team
+    function renderTeamList(){
+      const list = document.getElementById('teamList');
+      const empty = document.getElementById('teamEmpty');
+      if(!list) return;
+      // Rimuove righe precedenti ma mantiene #teamEmpty
+      Array.from(list.children).forEach(c => { if(c.id !== 'teamEmpty') c.remove(); });
+
+      if(!state.colleghi.length){
+        if(empty) empty.style.display = '';
+        return;
+      }
+      if(empty) empty.style.display = 'none';
+
+      state.colleghi.forEach(c => {
+        const initial = (c.name || '?').charAt(0).toUpperCase();
+        const metaParts = [
+          c.role === 'tutor' ? 'Tutor' : 'Dipendente',
+          c.durationKey || '',
+          c.startWeekISO ? `dal ${c.startWeekISO}` : ''
+        ].filter(Boolean);
+
+        const row = document.createElement('div');
+        row.className = 'colleague-row';
+        row.innerHTML = `
+          <div class="colleague-avatar">${initial}</div>
+          <div class="colleague-info">
+            <div class="colleague-name">${escapeHtml(c.name)}</div>
+            <div class="colleague-meta">${metaParts.join(' · ')}</div>
+          </div>
+          <div class="colleague-actions">
+            <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
+            <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+          </div>`;
+
+        row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
+        row.querySelector('.del').addEventListener('click', () => {
+          state.colleghi = state.colleghi.filter(x => x.id !== c.id);
+          saveColleghi();
+          renderTeamList();
+        });
+        list.appendChild(row);
+      });
+    }
+
+    // Genera ID unico
+    function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+    // pendingColleague — stato temporaneo della modal di aggiunta/modifica
+    let pendingColleague = { id: null, name: '', role: null, durationKey: null, durationMinutes: null, startMonth: null, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
+
+    function refreshColleagueModalOptions(){
+      const role = pendingColleague.role;
+      const pattern = role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
+
+      // Opzioni orario
+      const oSel = document.getElementById('cOptionSelect');
+      if(oSel){
+        oSel.innerHTML = '<option value="">-- Seleziona --</option>';
+        pattern.forEach((entry, idx) => {
+          const opt = document.createElement('option');
+          opt.value = String(idx);
+          opt.textContent = `Opzione ${idx+1}: ${optionText(entry)}`;
+          oSel.appendChild(opt);
+        });
+        if(pendingColleague.anchorPatternIndex !== null) oSel.value = String(pendingColleague.anchorPatternIndex);
+      }
+
+      refreshColleagueWeeks();
+    }
+
+    function refreshColleagueWeeks(){
+      const year = pendingColleague.startWeekYear || new Date().getFullYear();
+      const month = pendingColleague.startMonth;
+
+      const wSel = document.getElementById('cWeekSelect');
+      if(!wSel) return;
+      wSel.innerHTML = '<option value="">-- Seleziona --</option>';
+
+      if(month !== null && month !== undefined){
+        const candidates = computeWeeksForYear(year).filter(w => w.monthsTouched.has(month));
+        candidates.forEach(w => {
+          const opt = document.createElement('option');
+          opt.value = w.iso;
+          opt.textContent = w.label;
+          wSel.appendChild(opt);
+        });
+        if(pendingColleague.startWeekISO) wSel.value = pendingColleague.startWeekISO;
+      }
+    }
+
+    function validatePendingColleague(){
+      const ok = pendingColleague.name.trim().length > 0
+        && pendingColleague.role
+        && pendingColleague.durationMinutes
+        && pendingColleague.startWeekISO
+        && pendingColleague.anchorPatternIndex !== null;
+      const btn = document.getElementById('saveColleagueBtn');
+      if(btn) btn.disabled = !ok;
+      return ok;
+    }
+
+    function openColleagueModal(editId){
+      if(editId){
+        const existing = state.colleghi.find(c => c.id === editId);
+        if(!existing) return;
+        pendingColleague = { ...existing,
+          startMonth: existing.startWeekISO ? parseISODate(existing.startWeekISO).getMonth() : 0,
+          startWeekYear: existing.startWeekISO ? parseISODate(existing.startWeekISO).getFullYear() : new Date().getFullYear()
+        };
+        document.getElementById('colleagueModalTitle').textContent = 'Modifica collega';
+      } else {
+        pendingColleague = { id: null, name: '', role: null, durationKey: null, durationMinutes: null, startMonth: 0, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
+        document.getElementById('colleagueModalTitle').textContent = 'Aggiungi collega';
+      }
+
+      // Popola campi
+      document.getElementById('colleagueName').value = pendingColleague.name || '';
+
+      document.querySelectorAll('#cRoleSegment button').forEach(b => {
+        b.setAttribute('aria-pressed', b.getAttribute('data-role') === pendingColleague.role ? 'true' : 'false');
+      });
+      document.querySelectorAll('#cHoursSegment button').forEach(b => {
+        b.setAttribute('aria-pressed', b.getAttribute('data-hours') === pendingColleague.durationKey ? 'true' : 'false');
+      });
+
+      // Anno
+      const ySel = document.getElementById('cYearSelect');
+      ySel.innerHTML = '';
+      const curY = new Date().getFullYear();
+      for(let y = curY - 1; y <= curY + 2; y++){
+        const opt = document.createElement('option');
+        opt.value = String(y); opt.textContent = String(y);
+        if(y === pendingColleague.startWeekYear) opt.selected = true;
+        ySel.appendChild(opt);
+      }
+
+      // Mese
+      const mSel = document.getElementById('cMonthSelect');
+      mSel.innerHTML = '<option value="">-- Seleziona --</option>';
+      MONTHS.forEach((m, i) => {
+        const opt = document.createElement('option'); opt.value = String(i); opt.textContent = m;
+        if(i === pendingColleague.startMonth) opt.selected = true;
+        mSel.appendChild(opt);
+      });
+
+      refreshColleagueModalOptions();
+      validatePendingColleague();
+      openModal('colleagueModal');
+    }
+
+    function bindColleagueModal(){
+      // Chiudi
+      document.getElementById('closeColleagueModal').addEventListener('click', () => closeModal('colleagueModal'));
+      document.getElementById('cancelColleagueBtn').addEventListener('click', () => closeModal('colleagueModal'));
+      document.getElementById('colleagueModal').addEventListener('click', e => { if(e.target.id === 'colleagueModal') closeModal('colleagueModal'); });
+
+      // Nome
+      document.getElementById('colleagueName').addEventListener('input', e => {
+        pendingColleague.name = e.target.value;
+        validatePendingColleague();
+      });
+
+      // Ruolo
+      document.querySelectorAll('#cRoleSegment button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          pendingColleague.role = btn.getAttribute('data-role');
+          pendingColleague.anchorPatternIndex = null; // reset opzione
+          document.querySelectorAll('#cRoleSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+          refreshColleagueModalOptions();
+          validatePendingColleague();
+        });
+      });
+
+      // Ore
+      document.querySelectorAll('#cHoursSegment button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const k = btn.getAttribute('data-hours');
+          pendingColleague.durationKey = k;
+          pendingColleague.durationMinutes = DURATIONS[k];
+          document.querySelectorAll('#cHoursSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+          validatePendingColleague();
+        });
+      });
+
+      // Anno
+      document.getElementById('cYearSelect').addEventListener('change', e => {
+        pendingColleague.startWeekYear = parseInt(e.target.value, 10);
+        pendingColleague.startWeekISO = null;
+        refreshColleagueWeeks();
+        validatePendingColleague();
+      });
+
+      // Mese
+      document.getElementById('cMonthSelect').addEventListener('change', e => {
+        pendingColleague.startMonth = e.target.value === '' ? null : parseInt(e.target.value, 10);
+        pendingColleague.startWeekISO = null;
+        refreshColleagueWeeks();
+        validatePendingColleague();
+      });
+
+      // Settimana
+      document.getElementById('cWeekSelect').addEventListener('change', e => {
+        pendingColleague.startWeekISO = e.target.value || null;
+        validatePendingColleague();
+      });
+
+      // Opzione
+      document.getElementById('cOptionSelect').addEventListener('change', e => {
+        pendingColleague.anchorPatternIndex = e.target.value === '' ? null : parseInt(e.target.value, 10);
+        validatePendingColleague();
+      });
+
+      // Salva
+      document.getElementById('saveColleagueBtn').addEventListener('click', () => {
+        if(!validatePendingColleague()) return;
+        const data = {
+          id: pendingColleague.id || genId(),
+          name: pendingColleague.name.trim(),
+          role: pendingColleague.role,
+          durationKey: pendingColleague.durationKey,
+          durationMinutes: pendingColleague.durationMinutes,
+          startWeekISO: pendingColleague.startWeekISO,
+          anchorPatternIndex: pendingColleague.anchorPatternIndex,
+        };
+        const idx = state.colleghi.findIndex(c => c.id === data.id);
+        if(idx >= 0) state.colleghi[idx] = data;
+        else state.colleghi.push(data);
+        saveColleghi();
+        renderTeamList();
+        closeModal('colleagueModal');
+      });
+    }
+
+    // Cerca chi lavora in un dato giorno
+    function renderSearchResults(targetISO){
+      const el = document.getElementById('searchResults');
+      if(!el) return;
+      el.style.display = 'block';
+      el.innerHTML = '';
+
+      // Intestazione
+      const head = document.createElement('div');
+      head.className = 'search-head-row';
+      const dateObj = parseISODate(targetISO);
+      head.innerHTML = `<i class="fa-regular fa-calendar"></i>${dateObj.toLocaleDateString('it-IT', { weekday:'long', day:'2-digit', month:'long', year:'numeric' })}`;
+      el.appendChild(head);
+
+      // Soggetti da controllare: collega corrente (se generato) + team
+      const subjects = [];
+      if(state.generated && state.startWeekISO && state.anchorPatternIndex !== null){
+        subjects.push({
+          name: 'Tu',
+          cfg: { role: state.role, durationMinutes: state.durationMinutes, startWeekISO: state.startWeekISO, anchorPatternIndex: state.anchorPatternIndex }
+        });
+      }
+      state.colleghi.forEach(c => subjects.push({ name: c.name, cfg: c }));
+
+      if(!subjects.length){
+        const note = document.createElement('div');
+        note.className = 'no-results-note';
+        note.textContent = 'Genera prima la tua matrice o aggiungi colleghi al team.';
+        el.appendChild(note);
+        return;
+      }
+
+      subjects.forEach(s => {
+        const day = getScheduleOnDate(s.cfg, targetISO);
+        const initial = s.name.charAt(0).toUpperCase();
+
+        let badgeClass, badgeText, timeText = '';
+        if(!day){
+          badgeClass = 'badge-out'; badgeText = 'Fuori periodo';
+        } else if(day.isHoliday){
+          badgeClass = 'badge-holiday'; badgeText = `Festivo — ${day.holidayName}`; timeText = `${day.start}–${day.end}`;
+        } else if(day.isRest){
+          badgeClass = 'badge-rest'; badgeText = 'Libero';
+        } else {
+          badgeClass = 'badge-work'; badgeText = 'Lavora'; timeText = `${day.start}–${day.end}`;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'sr-row';
+        row.innerHTML = `
+          <div class="sr-avatar">${escapeHtml(initial)}</div>
+          <div class="sr-name">${escapeHtml(s.name)}</div>
+          ${timeText ? `<div class="sr-time">${timeText}</div>` : ''}
+          <span class="sr-badge ${badgeClass}">${badgeText}</span>`;
+        el.appendChild(row);
+      });
+    }
+
+    function bindSearchByDate(){
+      const input = document.getElementById('searchDateInput');
+      const btn = document.getElementById('searchDateBtn');
+      if(!input || !btn) return;
+
+      // Precompila con oggi
+      input.value = isoDate(new Date());
+
+      const doSearch = () => {
+        if(!input.value) return;
+        renderSearchResults(input.value);
+      };
+
+      btn.addEventListener('click', doSearch);
+      input.addEventListener('change', doSearch);
+      input.addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
+    }
+
+    function initTeam(){
+      // Carica colleghi da localStorage
+      try{ state.colleghi = JSON.parse(safeStorageGet('colleghi') || '[]'); } catch(e){ state.colleghi = []; }
+      renderTeamList();
+
+      // Pulsante aggiungi
+      const addBtn = document.getElementById('addColleagueBtn');
+      if(addBtn) addBtn.addEventListener('click', () => openColleagueModal(null));
+
+      bindColleagueModal();
+      bindSearchByDate();
+    }
+
+    // ===== FINE TEAM =====
+
     function stepDone(stepId, text){
       const inp = document.getElementById(`step-${stepId}-input`);
       const sum = document.getElementById(`step-${stepId}-sum`);
@@ -2601,6 +3165,9 @@ function buildHolidayMapForYear(year){
 
       // Ore (attiva/disable UI)
       initHours();
+
+      // Team e cerca per data
+      initTeam();
 
       // Labels/modals (dipendono da ore + mese + settimana)
       updateRefLabels();
