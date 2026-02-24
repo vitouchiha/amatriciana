@@ -1573,6 +1573,44 @@
         </div>
       </section>
 
+      <!-- Trova Collega -->
+      <section class="card" id="findColleagueCard">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Trova Collega</div>
+            <div class="card-sub">Cerca chi ha un orario specifico in un giorno, tenendo conto delle regole di scambio.</div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="findColPrereq" class="note">
+            <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
+            Genera prima la tua matrice e aggiungi almeno un collega con configurazione completa.
+          </div>
+          <div id="findColForm" style="display:none;">
+            <div class="controls-grid" style="gap:8px;">
+              <div class="ctrl-item">
+                <span class="control-label">Giorno</span>
+                <input type="date" id="findColDate" class="search-date-input" style="width:100%;" />
+              </div>
+              <div class="ctrl-item">
+                <span class="control-label">Cerco orario</span>
+                <select id="findColTarget" class="hours-select" style="width:100%;">
+                  <option value="">— seleziona orario —</option>
+                </select>
+              </div>
+              <div class="ctrl-item" style="justify-content:flex-end;">
+                <span class="control-label" style="visibility:hidden;">OK</span>
+                <button class="btn ok-btn" id="findColBtn" type="button">
+                  <i class="fa-solid fa-magnifying-glass"></i> Cerca
+                </button>
+              </div>
+            </div>
+            <div id="findColMyShift" style="display:none;margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--ctrl-bg);font-size:13px;"></div>
+          </div>
+          <div id="findColResult" style="display:none;margin-top:12px;"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -1991,6 +2029,7 @@ function buildHolidayMapForYear(year){
   map.set(`${year}-12-08`, 'Immacolata Concezione');
   map.set(`${year}-12-25`, 'Natale');
   map.set(`${year}-12-26`, 'Santo Stefano');
+  map.set(`${year}-05-10`, 'San Cataldo (Patrono)');
 
   // Pasquetta (Lunedì dell’Angelo)
   const easter = easterDate(year);
@@ -3334,6 +3373,8 @@ function buildHolidayMapForYear(year){
           sel.appendChild(opt);
         });
       }
+      // Sincronizza anche la card Trova Collega
+      refreshFindColReadiness();
     }
 
     function initSwap(){
@@ -3354,6 +3395,132 @@ function buildHolidayMapForYear(year){
     }
 
     // ===== FINE SCAMBI ORARI =====
+
+    // ===== TROVA COLLEGA =====
+    function refreshFindColReadiness(){
+      const prereq = document.getElementById('findColPrereq');
+      const form   = document.getElementById('findColForm');
+      if(!prereq || !form) return;
+      const ready = state.generated &&
+        state.colleghi.some(c => c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined);
+      prereq.style.display = ready ? 'none' : '';
+      form.style.display   = ready ? '' : 'none';
+      if(ready){
+        // Popola il select degli orari target con tutti gli orari unici del pattern attivo
+        const sel = document.getElementById('findColTarget');
+        if(sel){
+          const currentVal = sel.value;
+          sel.innerHTML = '<option value="">— seleziona orario —</option>';
+          const seen = new Set();
+          (ACTIVE_PATTERN || []).forEach(p => {
+            if(!seen.has(p.startTime)){
+              seen.add(p.startTime);
+              const opt = document.createElement('option');
+              opt.value = p.startTime;
+              opt.textContent = p.startTime;
+              sel.appendChild(opt);
+            }
+          });
+          // Aggiungi opzione Riposo
+          if(!seen.has('LIBERO')){
+            const opt = document.createElement('option');
+            opt.value = 'LIBERO';
+            opt.textContent = 'LIBERO (giorno di riposo)';
+            sel.appendChild(opt);
+          }
+          if(currentVal) sel.value = currentVal;
+        }
+      }
+    }
+
+    function initFindColleague(){
+      refreshFindColReadiness();
+
+      // Aggiorna turno personale al cambio data
+      const dateInput = document.getElementById('findColDate');
+      if(dateInput) dateInput.addEventListener('change', () => {
+        const myShiftEl = document.getElementById('findColMyShift');
+        const resultEl  = document.getElementById('findColResult');
+        if(resultEl) resultEl.style.display = 'none';
+        if(!dateInput.value || !state.generated || state.anchorPatternIndex === null){
+          if(myShiftEl) myShiftEl.style.display = 'none';
+          return;
+        }
+        const cfg  = buildCfgFromState();
+        const day  = getScheduleOnDate(cfg, dateInput.value);
+        if(!day){ if(myShiftEl){ myShiftEl.textContent = 'Giorno fuori dalla tua matrice.'; myShiftEl.style.display = ''; } return; }
+        if(myShiftEl){
+          const shiftTxt = day.isRest ? '🔴 LIBERO' : `${day.start} – ${day.end}${day.isHoliday ? ' · '+day.holidayName : ''}`;
+          myShiftEl.innerHTML = `<span style="opacity:.55;font-size:11px;">Il tuo turno:</span> <strong>${shiftTxt}</strong>`;
+          myShiftEl.style.display = '';
+        }
+      });
+
+      const btn = document.getElementById('findColBtn');
+      if(!btn) return;
+      btn.addEventListener('click', () => {
+        const dateVal   = document.getElementById('findColDate').value;
+        const targetOrario = document.getElementById('findColTarget').value;
+        const resultEl  = document.getElementById('findColResult');
+        if(!dateVal){ toast('Attenzione', 'Seleziona un giorno.'); return; }
+        if(!targetOrario){ toast('Attenzione', 'Seleziona l\'orario che cerchi.'); return; }
+
+        const cfgA   = buildCfgFromState();
+        const myDay  = getScheduleOnDate(cfgA, dateVal);
+
+        const matches   = []; // { name, shift, swapOk, swapErrors }
+        const noShift   = []; // colleghi senza turno in quella data
+        const wrongTime = []; // colleghi con orario diverso
+
+        state.colleghi.forEach(c => {
+          if(!c.startWeekISO || c.anchorPatternIndex === null || c.anchorPatternIndex === undefined) return;
+          const cDay = getScheduleOnDate(c, dateVal);
+          if(!cDay){ noShift.push(c.name); return; }
+
+          const cShift = cDay.isRest ? 'LIBERO' : cDay.start;
+          if(cShift !== targetOrario){ wrongTime.push({ name: c.name, shift: cDay.isRest ? 'LIBERO' : `${cDay.start}–${cDay.end}` }); return; }
+
+          // Collega ha l'orario cercato — valida lo scambio (stesso giorno per entrambi)
+          const errors = validateSwap(dateVal, dateVal, c, c.name);
+          matches.push({ name: c.name, shift: cDay.isRest ? '🔴 LIBERO' : `${cDay.start} – ${cDay.end}`, swapOk: errors.length === 0, swapErrors: errors });
+        });
+
+        if(!resultEl) return;
+        if(!matches.length && !wrongTime.length){
+          resultEl.innerHTML = `<div class="note"><i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>Nessun collega trovato con orario <strong>${escapeHtml(targetOrario)}</strong> in questa data.</div>`;
+          resultEl.style.display = '';
+          return;
+        }
+
+        let html = '';
+        if(matches.length){
+          html += `<div style="font-size:11px;font-weight:900;opacity:.55;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Colleghi con orario ${escapeHtml(targetOrario)}</div>`;
+          matches.forEach(m => {
+            const ok = m.swapOk;
+            html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-radius:12px;margin-bottom:8px;
+              background:${ok ? 'rgba(34,197,94,.07)' : 'rgba(248,113,113,.07)'};
+              border:1px solid ${ok ? 'rgba(34,197,94,.22)' : 'rgba(248,113,113,.22)'};">
+              <i class="fa-solid ${ok ? 'fa-circle-check' : 'fa-circle-xmark'}" style="color:${ok ? '#22c55e' : '#f87171'};font-size:18px;flex-shrink:0;margin-top:1px;"></i>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:900;font-size:13px;">${escapeHtml(m.name)}</div>
+                <div style="font-size:12px;opacity:.65;margin-top:2px;">${escapeHtml(m.shift)}</div>
+                ${!ok ? `<ul style="margin:6px 0 0;padding-left:16px;font-size:11px;color:#f87171;display:flex;flex-direction:column;gap:2px;">${m.swapErrors.map(e=>`<li>${escapeHtml(e)}</li>`).join('')}</ul>` : '<div style="font-size:11px;color:#22c55e;margin-top:3px;">Scambio ammesso ✓</div>'}
+              </div>
+            </div>`;
+          });
+        }
+        if(wrongTime.length){
+          html += `<details style="margin-top:4px;"><summary style="font-size:11px;font-weight:700;opacity:.45;cursor:pointer;">Altri colleghi (orario diverso) · ${wrongTime.length}</summary><div style="margin-top:6px;display:flex;flex-direction:column;gap:4px;">`;
+          wrongTime.forEach(w => {
+            html += `<div style="font-size:12px;padding:6px 10px;border-radius:8px;background:var(--ctrl-bg);">${escapeHtml(w.name)} — <span style="opacity:.6;">${escapeHtml(w.shift)}</span></div>`;
+          });
+          html += `</div></details>`;
+        }
+        resultEl.innerHTML = html;
+        resultEl.style.display = '';
+      });
+    }
+    // ===== FINE TROVA COLLEGA =====
 
     function stepDone(stepId, text){
       const inp = document.getElementById(`step-${stepId}-input`);
@@ -3626,7 +3793,7 @@ function buildHolidayMapForYear(year){
       });
 
       const container = document.createElement('div');
-      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-wrap:wrap; gap:12px; padding:4px;';
+      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:8px; width:700px;';
 
       monthMap.forEach((days, key) => {
         const [y, m] = key.split('-').map(Number);
@@ -3650,7 +3817,7 @@ function buildHolidayMapForYear(year){
         const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' ' + totM + 'm' : ''}` : '—';
 
         const card = document.createElement('div');
-        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:348px; flex-shrink:0;';
+        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:100%;';
 
         const titleEl = document.createElement('div');
         titleEl.style.cssText = 'font-weight:900; font-size:14px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.14),rgba(123,97,255,0.09)); border-bottom:1px solid #e2e8f0;';
@@ -3950,6 +4117,9 @@ function buildHolidayMapForYear(year){
 
       // Scambi orari
       initSwap();
+
+      // Trova collega
+      initFindColleague();
 
       // Calendario inline settimana
       initInlineCal();
