@@ -1942,12 +1942,11 @@ function buildHolidayMapForYear(year){
       previewWrap.classList.add('is-visible');
       empty.style.display = 'none';
 
-      // Abilita/disabilita tasti export nella topbar
-      const canExport = !!state.durationMinutes;
+      // Abilita sempre i tasti export dopo la generazione
       const saveBtn = document.getElementById('saveTopBtn');
       const shareBtn = document.getElementById('shareTopBtn');
-      if(saveBtn) saveBtn.disabled = !canExport;
-      if(shareBtn) shareBtn.disabled = !canExport;
+      if(saveBtn) saveBtn.disabled = false;
+      if(shareBtn) shareBtn.disabled = false;
 
       // Aggiorna sottotitolo brand
       const sub = document.getElementById('brandSub');
@@ -2365,6 +2364,7 @@ function buildHolidayMapForYear(year){
     }
 
     async function savePng(){
+      if(!state.generated){ toast('Matrice assente', 'Genera prima la matrice.'); return; }
       const btn = document.getElementById('saveTopBtn');
       if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
@@ -2381,6 +2381,7 @@ function buildHolidayMapForYear(year){
     }
 
     async function sharePng(){
+      if(!state.generated){ toast('Matrice assente', 'Genera prima la matrice.'); return; }
       // Mostra feedback immediato
       const btn = document.getElementById('shareTopBtn');
       if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
