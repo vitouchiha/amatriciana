@@ -2168,7 +2168,7 @@ function buildHolidayMapForYear(year){
           const y = dateObj.getFullYear();
           const holidayName = holidayMaps[y] ? holidayMaps[y].get(isoDate(dateObj)) : null;
           const isHoliday = !!holidayName;
-          const isRientro = isRientroWeek(weekStart, state.team);
+          const isRientro = isRientroWeek(weekStart, state.team) && dayIdx < 5;
 
           days.push({ dayName, dateObj, isRest, start, end, isHoliday, holidayName, isRientro });
         }
@@ -2851,7 +2851,7 @@ function buildHolidayMapForYear(year){
           const se = computeStartEnd(rawStart, cfg.durationMinutes || 0);
           const y = dateObj.getFullYear();
           const holidayName = hMaps[y] ? hMaps[y].get(isoDate(dateObj)) : null;
-          const isRientro = isRientroWeek(weekStart, cfg.team || null);
+          const isRientro = isRientroWeek(weekStart, cfg.team || null) && di < 5;
           days.push({ dayName, dateObj, isRest, start: se.start, end: se.end, isHoliday: !!holidayName, holidayName, isRientro });
         }
         weeks.push({ weekIndex: wi, patternIndex: pIdx, weekStart, days });

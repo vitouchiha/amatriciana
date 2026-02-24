@@ -116,6 +116,9 @@ git push
 
 | Versione | Data | Note |
 |----------|------|------|
+| v1.13.2 | 2026-02-24 | Fix: badge "Rientro" non mostrato il sabato e la domenica |
+| v1.13.1 | 2026-02-24 | Fix: ciclo rientri ogni 42 giorni (6 settimane), aggiunto team 9 |
+| v1.13.0 | 2026-02-24 | Step Team nel wizard, rientri in sede indicati nel calendario |
 | v1.8.0 | 2026-02-24 | Calendario inline per selezione settimana — rimossi pulsanti Mese/Settimana disabilitati |
 | v1.7.0 | 2026-02-24 | Monte ore 20h/30h/33h/40h settimanali con menu a tendina |
 | v1.6.0 | 2026-02-24 | Integrazione Firebase Firestore — sync dati multi-device |
