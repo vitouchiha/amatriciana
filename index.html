@@ -444,6 +444,13 @@
       line-height: 1.2;
       word-break: break-word;
     }
+    .cal-rientro{
+      font-size: 9px;
+      font-weight: 900;
+      color: #d97706;
+      letter-spacing: 0.1px;
+      margin-top: 1px;
+    }
     .cal-time.time-red{ color: var(--danger); }
     .week-card{
       border: 1px solid var(--stroke);
@@ -1409,7 +1416,22 @@
               </div>
             </div>
 
-            <!-- Step 2: Ore -->
+            <!-- Step 2: Team -->
+            <div class="ctrl-item">
+              <div id="step-team-input" style="display:none;">
+                <span class="control-label">Team</span>
+                <select class="select-like" id="teamSelect">
+                  <option value="">-- Seleziona team --</option>
+                </select>
+              </div>
+              <div id="step-team-sum" class="step-sum">
+                <i class="fa-solid fa-users step-sum-icon"></i>
+                <span class="step-sum-text" id="step-team-text"></span>
+                <button class="step-edit-btn" id="step-team-edit" type="button">Modifica</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Ore -->
             <div class="ctrl-item">
               <div id="step-hours-input">
                 <span class="control-label">Monte ore</span>
@@ -1947,6 +1969,23 @@
       return map[key] || key || '';
     }
 
+    // --------- Rientri in sede ---------
+    // Lunedì della prima settimana di rientro nota per ciascun team; ciclo ogni 5 settimane (35 giorni)
+    const TEAM_RIENTRO_ANCHORS = {
+      6: '2026-02-23',
+      7: '2026-02-16',
+      8: '2026-02-23',
+    };
+    // Team 1-5 e 9: anchor da definire
+
+    function isRientroWeek(weekMondayDate, team){
+      const anchorISO = TEAM_RIENTRO_ANCHORS[team];
+      if(!anchorISO || !team) return false;
+      const anchor = parseISODate(anchorISO);
+      const diffDays = Math.round((weekMondayDate.getTime() - anchor.getTime()) / 86400000);
+      return (((diffDays % 35) + 35) % 35) === 0;
+    }
+
 
     // --------- Helpers ---------
     function parseISODate(iso){
@@ -2082,6 +2121,7 @@ function buildHolidayMapForYear(year){
       role: null, // 'dipendente' | 'tutor'
       durationKey: null,
       durationMinutes: null,
+      team: null,                 // numero team (1-9); null = non selezionato
       startMonth: null,           // 0..11 (mese di partenza)
       startWeekISO: null,         // YYYY-MM-DD (lunedì della settimana di partenza)
       anchorPatternIndex: null,   // 0..17 (orario + riposi della settimana di partenza)
@@ -2127,8 +2167,9 @@ function buildHolidayMapForYear(year){
           const y = dateObj.getFullYear();
           const holidayName = holidayMaps[y] ? holidayMaps[y].get(isoDate(dateObj)) : null;
           const isHoliday = !!holidayName;
+          const isRientro = isRientroWeek(weekStart, state.team);
 
-          days.push({ dayName, dateObj, isRest, start, end, isHoliday, holidayName });
+          days.push({ dayName, dateObj, isRest, start, end, isHoliday, holidayName, isRientro });
         }
 
         const inMonth = (state.startMonth === null)
@@ -2309,6 +2350,8 @@ function buildHolidayMapForYear(year){
           } else {
             classes += ' cal-empty';
           }
+
+          if(d && d.isRientro) inner += `<div class="cal-rientro">&#x1f3e2; Rientro</div>`;
 
           html += `<div class="${classes}">${inner}</div>`;
         }
@@ -2807,7 +2850,8 @@ function buildHolidayMapForYear(year){
           const se = computeStartEnd(rawStart, cfg.durationMinutes || 0);
           const y = dateObj.getFullYear();
           const holidayName = hMaps[y] ? hMaps[y].get(isoDate(dateObj)) : null;
-          days.push({ dayName, dateObj, isRest, start: se.start, end: se.end, isHoliday: !!holidayName, holidayName });
+          const isRientro = isRientroWeek(weekStart, cfg.team || null);
+          days.push({ dayName, dateObj, isRest, start: se.start, end: se.end, isHoliday: !!holidayName, holidayName, isRientro });
         }
         weeks.push({ weekIndex: wi, patternIndex: pIdx, weekStart, days });
       }
@@ -3096,6 +3140,12 @@ function buildHolidayMapForYear(year){
               const t=document.createElement('div'); t.style.cssText=S.time; t.textContent=d.start; cell.appendChild(t);
               const te=document.createElement('div'); te.style.cssText=S.timeEnd; te.textContent=d.end; cell.appendChild(te);
             }
+          }
+          if(d && d.isRientro){
+            const r=document.createElement('div');
+            r.style.cssText='font-size:9px;font-weight:900;color:#d97706;letter-spacing:0.1px;margin-top:1px;';
+            r.textContent='\u{1f3e2} Rientro';
+            cell.appendChild(r);
           }
           grid.appendChild(cell);
         }
@@ -3489,6 +3539,7 @@ function buildHolidayMapForYear(year){
     function buildCfgFromState(){
       return {
         role: state.role,
+        team: state.team,
         durationMinutes: state.durationMinutes,
         startWeekISO: state.startWeekISO,
         anchorPatternIndex: state.anchorPatternIndex
@@ -3842,15 +3893,17 @@ function buildHolidayMapForYear(year){
     }
     // Avanza al prossimo step del wizard; se tutti completati genera automaticamente
     function advanceWizard(){
-      const steps = ['role','hours','week','option'];
+      const steps = ['role','team','hours','week','option'];
       const done = {
         role:   !!state.role,
+        team:   state.team !== null,
         hours:  !!state.durationKey,
         week:   !!state.startWeekISO,
         option: state.anchorPatternIndex !== null
       };
       const texts = {
         role:   state.role ? (state.role === 'tutor' ? 'Tutor' : 'Dipendente') : '',
+        team:   state.team !== null ? `Team ${state.team}` : '',
         hours:  state.durationKey ? prettyDuration(state.durationKey) : '',
         week:   state.startWeekISO ? weekLabel(parseISODate(state.startWeekISO)) : '',
         option: (state.anchorPatternIndex !== null && ACTIVE_PATTERN) ? optionText(ACTIVE_PATTERN[state.anchorPatternIndex]) : ''
@@ -3875,15 +3928,17 @@ function buildHolidayMapForYear(year){
       }
     }
     function syncStepsFromState(){
-      const steps = ['role','hours','week','option'];
+      const steps = ['role','team','hours','week','option'];
       const done = {
         role:   !!state.role,
+        team:   state.team !== null,
         hours:  !!state.durationKey,
         week:   !!state.startWeekISO,
         option: state.anchorPatternIndex !== null
       };
       const texts = {
         role:   state.role ? (state.role === 'tutor' ? 'Tutor' : 'Dipendente') : '',
+        team:   state.team !== null ? `Team ${state.team}` : '',
         hours:  state.durationKey ? prettyDuration(state.durationKey) : '',
         week:   state.startWeekISO ? weekLabel(parseISODate(state.startWeekISO)) : '',
         option: (state.anchorPatternIndex !== null && ACTIVE_PATTERN) ? optionText(ACTIVE_PATTERN[state.anchorPatternIndex]) : ''
@@ -3933,9 +3988,14 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('operatorRole', role);
           setActiveRole(role);
 
-          // Ruolo cambiato => reset opzione (pattern diverso)
+          // Ruolo cambiato => reset opzione (pattern diverso) e reset team
           state.anchorPatternIndex = null;
           localStorage.removeItem('anchorPatternIndex');
+          state.team = null;
+          localStorage.removeItem('team');
+
+          // Ripopola dropdown team in base al ruolo
+          populateTeamSelect(role);
 
           // Nascondi anteprima finò che non ri-genera
           state.generated = false;
@@ -3953,9 +4013,12 @@ function buildHolidayMapForYear(year){
       if(editBtn) editBtn.addEventListener('click', ()=>{
         state.anchorPatternIndex = null;
         localStorage.removeItem('anchorPatternIndex');
+        state.team = null;
+        localStorage.removeItem('team');
         state.generated = false;
         render();
         stepHide('option');
+        stepHide('team');
         stepOpen('role');
         updateRefButtonsEnabled();
         updateGenerateEnabled();
@@ -3987,6 +4050,53 @@ function buildHolidayMapForYear(year){
 
       updateRefButtonsEnabled();
       updateGenerateEnabled();
+    }
+
+    // --------- Team step ---------
+    function populateTeamSelect(role){
+      const sel = document.getElementById('teamSelect');
+      if(!sel) return;
+      sel.innerHTML = '<option value="">-- Seleziona team --</option>';
+      const teams = role === 'tutor' ? [7,8,9] : [1,2,3,4,5,6];
+      teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        const hasData = TEAM_RIENTRO_ANCHORS[t] !== undefined;
+        opt.textContent = `Team ${t}${!hasData ? ' (dati in aggiornamento)' : ''}`;
+        sel.appendChild(opt);
+      });
+      if(state.team !== null) sel.value = state.team;
+    }
+
+    function initTeamStep(){
+      // Populate based on current role (may already be set)
+      populateTeamSelect(state.role || 'dipendente');
+
+      const sel = document.getElementById('teamSelect');
+      if(!sel) return;
+
+      // Restore from localStorage
+      const saved = localStorage.getItem('team');
+      if(saved !== null && saved !== ''){
+        const n = Number(saved);
+        if(Number.isFinite(n)){
+          state.team = n;
+          sel.value = n;
+        }
+      }
+
+      sel.addEventListener('change', () => {
+        const val = sel.value;
+        if(!val){ state.team = null; localStorage.removeItem('team'); return; }
+        state.team = Number(val);
+        localStorage.setItem('team', state.team);
+        state.generated = false;
+        render();
+        advanceWizard();
+      });
+
+      const editBtn = document.getElementById('step-team-edit');
+      if(editBtn) editBtn.addEventListener('click', () => stepOpen('team'));
     }
 
     // --------- Theme & view ---------
@@ -4265,6 +4375,9 @@ function buildHolidayMapForYear(year){
       // Ruolo operatore (Dipendente/Tutor)
       initRole();
 
+      // Team
+      initTeamStep();
+
       // Ore (attiva/disable UI)
       initHours();
 
@@ -4307,18 +4420,20 @@ function buildHolidayMapForYear(year){
         setActiveRole('dipendente');
         state.durationKey = null;
         state.durationMinutes = null;
+        state.team = null;
         state.anchorPatternIndex = null;
         state.startMonth = parseISODate(BASE_START_ISO).getMonth();
         state.startWeekISO = BASE_START_ISO;
 
         // Riapri solo il primo step del wizard
-        ['role','hours','week','option'].forEach(s => stepHide(s));
+        ['role','team','hours','week','option'].forEach(s => stepHide(s));
         stepOpen('role');
         renderInlineCal();
         const calLbl = document.getElementById('calSelLabel');
         if(calLbl) calLbl.textContent = 'Seleziona settimana';
 
         localStorage.removeItem('operatorRole');
+        localStorage.removeItem('team');
         localStorage.removeItem('durationKey');
         localStorage.removeItem('anchorPatternIndex');
         localStorage.removeItem('startMonth');
@@ -4327,6 +4442,10 @@ function buildHolidayMapForYear(year){
 
         // UI reset ruolo
         document.querySelectorAll('#roleSegment button').forEach(b => b.setAttribute('aria-pressed','false'));
+
+        // UI reset team
+        const teamSel = document.getElementById('teamSelect');
+        if(teamSel){ populateTeamSelect('dipendente'); teamSel.value = ''; }
 
         // UI reset ore
         const hoursSelect = document.getElementById('hoursSelect');
