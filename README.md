@@ -82,6 +82,12 @@ Vercel aggiornerà automaticamente la preview e la produzione.
 
 ## 📝 Changelog
 
+### v1.3.0
+- Nuova vista **Calendario mensile**: griglia 7 colonne (Lun-Dom) per ogni mese generato
+- Il tasto Vista cicla tra 3 modalità: Tabella → Schede → Calendario → Tabella
+- Icona del toggle aggiornata per indicare la prossima vista
+- Preferenza di vista salvata in localStorage
+
 ### v1.2.0
 - Matrice generata fino a fine anno per entrambi i ruoli (Dipendente + Tutor)
 
