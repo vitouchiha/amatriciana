@@ -1397,25 +1397,17 @@
               </div>
             </div>
 
-            <!-- Step 3+4: Settimana di partenza (calendario inline) -->
+            <!-- Step 3+4: Settimana di partenza (calendario modale) -->
             <div class="ctrl-item" style="align-items:flex-start;">
               <div id="step-week-input">
                 <span class="control-label">Settimana di partenza</span>
-                <div class="ical-wrap" id="icalWrap">
-                  <div class="ical-nav">
-                    <button class="ical-nav-btn" id="calPrev" type="button">&#8249;</button>
-                    <span class="ical-month-label" id="calMonthLabel"></span>
-                    <button class="ical-nav-btn" id="calNext" type="button">&#8250;</button>
-                  </div>
-                  <div class="ical-dow-row">
-                    <div class="ical-dow">Lun</div><div class="ical-dow">Mar</div>
-                    <div class="ical-dow">Mer</div><div class="ical-dow">Gio</div>
-                    <div class="ical-dow">Ven</div><div class="ical-dow">Sab</div>
-                    <div class="ical-dow">Dom</div>
-                  </div>
-                  <div class="ical-days-grid" id="calDaysGrid"></div>
-                </div>
-                <div id="calSelLabel" style="font-size:12px;font-weight:700;color:var(--accent);margin-top:6px;min-height:18px;letter-spacing:.02em;"></div>
+                <button class="select-like" id="weekPickerBtn" type="button">
+                  <span class="select-like__left">
+                    <i class="fa-regular fa-calendar-week" style="margin-right:8px;opacity:.7;"></i>
+                    <span id="calSelLabel">Seleziona settimana</span>
+                  </span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
               </div>
             </div>
 
@@ -1549,6 +1541,32 @@
   </div>
 
   <!-- Modals -->
+
+  <!-- Modal selezione settimana -->
+  <div class="modal" id="weekCalModal" role="dialog" aria-modal="true" aria-labelledby="weekCalTitle">
+    <div class="modal-sheet" style="max-width:340px;">
+      <div class="modal-head">
+        <div class="modal-title" id="weekCalTitle"><i class="fa-solid fa-calendar-week" style="margin-right:8px;color:var(--accent);"></i>Settimana di partenza</div>
+        <button class="icon-btn" id="closeWeekCalModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding:4px 16px 20px;">
+        <div class="ical-wrap" id="icalWrap" style="max-width:100%;border:none;background:transparent;padding:0;">
+          <div class="ical-nav">
+            <button class="ical-nav-btn" id="calPrev" type="button">&#8249;</button>
+            <span class="ical-month-label" id="calMonthLabel"></span>
+            <button class="ical-nav-btn" id="calNext" type="button">&#8250;</button>
+          </div>
+          <div class="ical-dow-row">
+            <div class="ical-dow">Lun</div><div class="ical-dow">Mar</div>
+            <div class="ical-dow">Mer</div><div class="ical-dow">Gio</div>
+            <div class="ical-dow">Ven</div><div class="ical-dow">Sab</div>
+            <div class="ical-dow">Dom</div>
+          </div>
+          <div class="ical-days-grid" id="calDaysGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal login admin -->
   <div class="modal" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
@@ -2378,6 +2396,7 @@ function buildHolidayMapForYear(year){
           const wl = weekLabel(parseISODate(monday));
           const calLbl = document.getElementById('calSelLabel');
           if(calLbl) calLbl.textContent = wl;
+          closeModal('weekCalModal');
           updateRefLabels();
           renderInlineCal();
           if(state.generated) render();
@@ -2411,7 +2430,32 @@ function buildHolidayMapForYear(year){
         renderInlineCal();
       });
 
-      renderInlineCal();
+      // Apri la modal al click del pulsante scegli settimana
+      const pickerBtn = document.getElementById('weekPickerBtn');
+      if(pickerBtn){
+        pickerBtn.addEventListener('click', ()=>{
+          // Sync calendario al mese della settimana correntemente selezionata
+          if(state.startWeekISO){
+            const d = parseISODate(state.startWeekISO);
+            _icalYear  = d.getFullYear();
+            _icalMonth = d.getMonth();
+          } else {
+            const n = new Date();
+            _icalYear  = n.getFullYear();
+            _icalMonth = n.getMonth();
+          }
+          renderInlineCal();
+          openModal('weekCalModal');
+        });
+      }
+      // Chiudi modal col pulsante X
+      const closeBtn = document.getElementById('closeWeekCalModal');
+      if(closeBtn) closeBtn.addEventListener('click', ()=> closeModal('weekCalModal'));
+      // Chiudi modal cliccando sul backdrop
+      const modal = document.getElementById('weekCalModal');
+      if(modal) modal.addEventListener('click', e=>{ if(e.target.id === 'weekCalModal') closeModal('weekCalModal'); });
+
+      // Imposta etichetta se già selezionata
       if(state.startWeekISO){
         const lbl = document.getElementById('calSelLabel');
         if(lbl) lbl.textContent = weekLabel(parseISODate(state.startWeekISO));
@@ -3698,7 +3742,7 @@ function buildHolidayMapForYear(year){
         ['role','hours','option'].forEach(s => stepOpen(s));
         renderInlineCal();
         const calLbl = document.getElementById('calSelLabel');
-        if(calLbl) calLbl.textContent = '';
+        if(calLbl) calLbl.textContent = 'Seleziona settimana';
 
         localStorage.removeItem('operatorRole');
         localStorage.removeItem('durationKey');
