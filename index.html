@@ -1328,6 +1328,12 @@
             </button>
             <span class="label">Tema</span>
           </div>
+          <div class="ctrl">
+            <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
+              <i class="fa-solid fa-lock"></i>
+            </button>
+            <span class="label" id="adminLabel">Admin</span>
+          </div>
         </div>
 
         <div class="tbtn-sep"></div>
@@ -1415,11 +1421,7 @@
                   </div>
                   <div class="ical-days-grid" id="calDaysGrid"></div>
                 </div>
-              </div>
-              <div id="step-week-sum" class="step-sum">
-                <i class="fa-solid fa-calendar-week step-sum-icon"></i>
-                <span class="step-sum-text" id="step-week-text"></span>
-                <button class="step-edit-btn" id="step-week-edit" type="button">Modifica</button>
+                <div id="calSelLabel" style="font-size:12px;font-weight:700;color:var(--accent);margin-top:6px;min-height:18px;letter-spacing:.02em;"></div>
               </div>
             </div>
 
@@ -1453,7 +1455,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card" id="previewCard" style="display:none;">
         <div class="card-head" style="border-bottom:0; padding-bottom:8px;">
           <div>
             <div class="card-title" style="display:block !important; font-size:13px; font-weight:900; opacity:0.7;">Anteprima</div>
@@ -1476,18 +1478,10 @@
       <!-- Team card -->
       <section class="card">
         <div class="card-head">
-          <div style="display:flex;flex-direction:column;gap:4px;">
-            <div class="card-title">Team</div>
-            <span id="adminBadge" class="admin-badge off"><i class="fa-solid fa-lock"></i> Area admin</span>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
-              <i class="fa-solid fa-lock"></i>
-            </button>
-            <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega" style="display:none;">
-              <i class="fa-solid fa-user-plus"></i>
-            </button>
-          </div>
+          <div class="card-title">Team</div>
+          <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega" style="display:none;">
+            <i class="fa-solid fa-user-plus"></i>
+          </button>
         </div>
         <div class="card-body">
           <div class="team-list" id="teamList">
@@ -2201,6 +2195,8 @@ function buildHolidayMapForYear(year){
     }
 
     function render(){
+      const previewCard = document.getElementById('previewCard');
+      if(previewCard) previewCard.style.display = state.generated ? '' : 'none';
       const previewWrap = document.getElementById('previewWrap');
       const empty = document.getElementById('emptyPreview');
       if(!state.generated){
@@ -2345,7 +2341,8 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('startWeekISO', monday);
           localStorage.setItem('startMonth', String(state.startMonth));
           const wl = weekLabel(parseISODate(monday));
-          stepDone('week', wl);
+          const calLbl = document.getElementById('calSelLabel');
+          if(calLbl) calLbl.textContent = wl;
           updateRefLabels();
           renderInlineCal();
           if(state.generated) render();
@@ -2379,11 +2376,11 @@ function buildHolidayMapForYear(year){
         renderInlineCal();
       });
 
-      const editBtn = document.getElementById('step-week-edit');
-      if(editBtn) editBtn.addEventListener('click', ()=>{ stepOpen('week'); updateRefButtonsEnabled(); });
-
       renderInlineCal();
-      if(state.startWeekISO) stepDone('week', weekLabel(parseISODate(state.startWeekISO)));
+      if(state.startWeekISO){
+        const lbl = document.getElementById('calSelLabel');
+        if(lbl) lbl.textContent = weekLabel(parseISODate(state.startWeekISO));
+      }
     }
     // ===== FINE CALENDARIO INLINE =====
 
@@ -2522,21 +2519,16 @@ function buildHolidayMapForYear(year){
 
     function updateAdminUI(){
       const isAdmin = isAdminSession();
-      // Badge
-      const badge = document.getElementById('adminBadge');
-      if(badge){
-        badge.className = 'admin-badge ' + (isAdmin ? 'on' : 'off');
-        badge.innerHTML = isAdmin
-          ? '<i class="fa-solid fa-unlock"></i> Admin attivo'
-          : '<i class="fa-solid fa-lock"></i> Area admin';
-      }
-      // Lock button
+      // Lock button (in topbar)
       const lockBtn = document.getElementById('adminLockBtn');
       if(lockBtn){
         lockBtn.className = 'icon-btn ' + (isAdmin ? 'unlocked' : 'locked');
         lockBtn.title = isAdmin ? 'Esci da admin' : 'Accedi come admin';
         lockBtn.querySelector('i').className = isAdmin ? 'fa-solid fa-unlock' : 'fa-solid fa-lock';
       }
+      // Topbar admin label
+      const lbl = document.getElementById('adminLabel');
+      if(lbl) lbl.textContent = isAdmin ? 'Admin ✓' : 'Admin';
       // Add button
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.style.display = isAdmin ? '' : 'none';
@@ -3055,8 +3047,6 @@ function buildHolidayMapForYear(year){
       if(state.role){ stepDone('role', state.role === 'tutor' ? 'Tutor' : 'Dipendente'); } else { stepOpen('role'); }
       // Ore
       if(state.durationKey){ stepDone('hours', prettyDuration(state.durationKey)); } else { stepOpen('hours'); }
-      // Settimana (calendario inline)
-      if(state.startWeekISO){ stepDone('week', weekLabel(parseISODate(state.startWeekISO))); } else { stepOpen('week'); }
       // Opzione
       if(state.anchorPatternIndex !== null){ stepDone('option', optionText(ACTIVE_PATTERN[state.anchorPatternIndex])); } else { stepOpen('option'); }
     }
@@ -3479,8 +3469,10 @@ function buildHolidayMapForYear(year){
         state.startWeekISO = BASE_START_ISO;
 
         // Riapri step rilevanti
-        ['role','hours','week','option'].forEach(s => stepOpen(s));
+        ['role','hours','option'].forEach(s => stepOpen(s));
         renderInlineCal();
+        const calLbl = document.getElementById('calSelLabel');
+        if(calLbl) calLbl.textContent = '';
 
         localStorage.removeItem('operatorRole');
         localStorage.removeItem('durationKey');
