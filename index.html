@@ -2416,15 +2416,15 @@ function buildHolidayMapForYear(year){
     // ===== FIREBASE =====
     // ► STEP 1: incolla qui il tuo firebaseConfig copiato dalla console Firebase
     const FIREBASE_CONFIG = {
-      apiKey:            'INSERISCI_API_KEY',
-      authDomain:        'INSERISCI_AUTH_DOMAIN',
-      projectId:         'INSERISCI_PROJECT_ID',
-      storageBucket:     'INSERISCI_STORAGE_BUCKET',
-      messagingSenderId: 'INSERISCI_MESSAGING_SENDER_ID',
-      appId:             'INSERISCI_APP_ID'
+      apiKey:            'AIzaSyBEeNgqLl8hLhxSMvZxHXoxvw9TDYlaOiw',
+      authDomain:        'amatriciana-199a1.firebaseapp.com',
+      projectId:         'amatriciana-199a1',
+      storageBucket:     'amatriciana-199a1.firebasestorage.app',
+      messagingSenderId: '1013648015559',
+      appId:             '1:1013648015559:web:bc4ffffb103ebac7eafee2'
     };
-    // ► STEP 2: inserisci l'email dell'utente che hai creato in Firebase Authentication
-    const FIREBASE_EMAIL = 'INSERISCI_EMAIL_FIREBASE';
+    // ► STEP 2: email dell'utente Firebase Authentication
+    const FIREBASE_EMAIL = 'vitoblackpoint@gmail.com';
     // ► STEP 3: la password Firebase deve coincidere con ADMIN_PASS qui sotto
 
     let _fbApp = null, _fbAuth = null, _fbDb = null, _fbReady = false;
@@ -2482,7 +2482,7 @@ function buildHolidayMapForYear(year){
     // ===== ADMIN =====
     // Cambia questa password per proteggere il pannello admin
     // (deve essere UGUALE alla password dell'utente Firebase che hai creato)
-    const ADMIN_PASS = 'admin1234';
+    const ADMIN_PASS = '8bha*Sr#!7y!wUZw';
 
     function isAdminSession(){
       try{ return sessionStorage.getItem('adminSession') === '1'; } catch(e){ return false; }
