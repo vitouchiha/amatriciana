@@ -704,6 +704,11 @@
       transition: background 0.15s, color 0.15s;
     }
     .step-edit-btn:hover{ background:var(--stroke); color:var(--fg); }
+    @keyframes stepFadeIn {
+      from { opacity:0; transform:translateY(-7px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+    .step-fadein { animation: stepFadeIn .2s cubic-bezier(.4,0,.2,1) both; }
 
     /* Modal */
     .modal{
@@ -1369,7 +1374,7 @@
         <div class="card-head">
           <div>
             <div class="card-title">Impostazioni</div>
-            <div class="card-sub">Compila i riferimenti e premi OK per generare le 18 settimane.</div>
+            <div class="card-sub">Segui i passaggi per generare la matrice.</div>
           </div>
         </div>
         <div class="card-body">
@@ -1423,6 +1428,11 @@
                   <i class="fa-solid fa-chevron-down"></i>
                 </button>
               </div>
+              <div id="step-week-sum" class="step-sum" style="display:none;">
+                <i class="fa-regular fa-calendar-week step-sum-icon"></i>
+                <span class="step-sum-text" id="step-week-text"></span>
+                <button class="step-edit-btn" id="step-week-edit" type="button">Modifica</button>
+              </div>
             </div>
 
             <!-- Step 5: Orario -->
@@ -1442,11 +1452,11 @@
               </div>
             </div>
 
-            <!-- OK + Reset inline -->
+            <!-- Reset inline -->
             <div class="ctrl-item" style="justify-content:flex-end;">
-              <span class="control-label" style="visibility:hidden;">OK</span>
+              <span class="control-label" style="visibility:hidden;">Reset</span>
               <div style="display:flex;gap:6px;align-items:center;">
-                <button class="btn ok-btn" id="generateBtn" type="button" disabled><i class="fa-solid fa-check"></i> OK</button>
+                <button class="btn ok-btn" id="generateBtn" type="button" disabled style="display:none;"><i class="fa-solid fa-check"></i> OK</button>
                 <button class="icon-btn" id="resetBtn" type="button" aria-label="Reset"><i class="fa-solid fa-rotate-left"></i></button>
               </div>
             </div>
@@ -2414,8 +2424,7 @@ function buildHolidayMapForYear(year){
           if(dlg) dlg.close();
           updateRefLabels();
           renderInlineCal();
-          if(state.generated) render();
-          else { stepOpen('option'); updateGenerateEnabled(); }
+          advanceWizard();
           fbSave();
         });
         return el;
@@ -2479,6 +2488,10 @@ function buildHolidayMapForYear(year){
         });
       }
 
+      // Edit settimana
+      const weekEditBtn = document.getElementById('step-week-edit');
+      if(weekEditBtn) weekEditBtn.addEventListener('click', ()=>{ stepOpen('week'); });
+
       // Imposta etichetta se già selezionata
       if(state.startWeekISO){
         const lbl = document.getElementById('calSelLabel');
@@ -2505,11 +2518,7 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('anchorPatternIndex', String(state.anchorPatternIndex));
           updateRefLabels();
           closeModal('optionModal');
-
-          // Collassa step opzione
-          stepDone('option', optionText(ACTIVE_PATTERN[idx]));
-
-          if(state.generated) render();
+          advanceWizard();
         });
         list.appendChild(b);
       });
@@ -3343,22 +3352,99 @@ function buildHolidayMapForYear(year){
       const sum = document.getElementById(`step-${stepId}-sum`);
       const txt = document.getElementById(`step-${stepId}-text`);
       if(inp) inp.style.display = 'none';
-      if(sum) sum.style.display = 'flex';
+      if(sum){
+        sum.style.display = 'flex';
+        sum.classList.remove('step-fadein');
+        void sum.offsetWidth; // force reflow
+        sum.classList.add('step-fadein');
+      }
       if(txt) txt.textContent = text;
     }
     function stepOpen(stepId){
       const inp = document.getElementById(`step-${stepId}-input`);
       const sum = document.getElementById(`step-${stepId}-sum`);
-      if(inp) inp.style.display = '';
+      if(inp){
+        inp.style.display = '';
+        inp.classList.remove('step-fadein');
+        void inp.offsetWidth;
+        inp.classList.add('step-fadein');
+      }
       if(sum) sum.style.display = 'none';
     }
+    function stepHide(stepId){
+      const inp = document.getElementById(`step-${stepId}-input`);
+      const sum = document.getElementById(`step-${stepId}-sum`);
+      if(inp) inp.style.display = 'none';
+      if(sum) sum.style.display = 'none';
+    }
+    // Avanza al prossimo step del wizard; se tutti completati genera automaticamente
+    function advanceWizard(){
+      const steps = ['role','hours','week','option'];
+      const done = {
+        role:   !!state.role,
+        hours:  !!state.durationKey,
+        week:   !!state.startWeekISO,
+        option: state.anchorPatternIndex !== null
+      };
+      const texts = {
+        role:   state.role ? (state.role === 'tutor' ? 'Tutor' : 'Dipendente') : '',
+        hours:  state.durationKey ? prettyDuration(state.durationKey) : '',
+        week:   state.startWeekISO ? weekLabel(parseISODate(state.startWeekISO)) : '',
+        option: (state.anchorPatternIndex !== null && ACTIVE_PATTERN) ? optionText(ACTIVE_PATTERN[state.anchorPatternIndex]) : ''
+      };
+      let firstIncomplete = null;
+      steps.forEach(s => { if(!done[s] && firstIncomplete === null) firstIncomplete = s; });
+      steps.forEach(s => {
+        if(done[s]){
+          stepDone(s, texts[s]);
+        } else if(s === firstIncomplete){
+          stepOpen(s);
+          if(s === 'option') updateRefButtonsEnabled();
+        } else {
+          stepHide(s);
+        }
+      });
+      if(!firstIncomplete){
+        // Tutti gli step completati → genera automaticamente
+        updateGenerateEnabled();
+        const btn = document.getElementById('generateBtn');
+        if(btn && !btn.disabled) btn.click();
+      }
+    }
     function syncStepsFromState(){
-      // Ruolo
-      if(state.role){ stepDone('role', state.role === 'tutor' ? 'Tutor' : 'Dipendente'); } else { stepOpen('role'); }
-      // Ore
-      if(state.durationKey){ stepDone('hours', prettyDuration(state.durationKey)); } else { stepOpen('hours'); }
-      // Opzione
-      if(state.anchorPatternIndex !== null){ stepDone('option', optionText(ACTIVE_PATTERN[state.anchorPatternIndex])); } else { stepOpen('option'); }
+      const steps = ['role','hours','week','option'];
+      const done = {
+        role:   !!state.role,
+        hours:  !!state.durationKey,
+        week:   !!state.startWeekISO,
+        option: state.anchorPatternIndex !== null
+      };
+      const texts = {
+        role:   state.role ? (state.role === 'tutor' ? 'Tutor' : 'Dipendente') : '',
+        hours:  state.durationKey ? prettyDuration(state.durationKey) : '',
+        week:   state.startWeekISO ? weekLabel(parseISODate(state.startWeekISO)) : '',
+        option: (state.anchorPatternIndex !== null && ACTIVE_PATTERN) ? optionText(ACTIVE_PATTERN[state.anchorPatternIndex]) : ''
+      };
+      let firstIncomplete = null;
+      steps.forEach(s => { if(!done[s] && firstIncomplete === null) firstIncomplete = s; });
+      steps.forEach(s => {
+        if(done[s]){
+          // Mostra il badge riepilogo senza animazione (caricamento iniziale)
+          const inp = document.getElementById(`step-${s}-input`);
+          const sum = document.getElementById(`step-${s}-sum`);
+          const txt = document.getElementById(`step-${s}-text`);
+          if(inp) inp.style.display = 'none';
+          if(sum){ sum.style.display = 'flex'; }
+          if(txt) txt.textContent = texts[s];
+        } else if(s === firstIncomplete){
+          const inp = document.getElementById(`step-${s}-input`);
+          const sum = document.getElementById(`step-${s}-sum`);
+          if(inp) inp.style.display = '';
+          if(sum) sum.style.display = 'none';
+        } else {
+          stepHide(s);
+        }
+      });
     }
 
     function initRole(){
@@ -3384,24 +3470,18 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('operatorRole', role);
           setActiveRole(role);
 
-          // Pattern cambiato => richiedi nuova selezione opzione orario
+          // Ruolo cambiato => reset opzione (pattern diverso)
           state.anchorPatternIndex = null;
           localStorage.removeItem('anchorPatternIndex');
 
-          // Nascondi anteprima finché non si rigenera
+          // Nascondi anteprima finò che non ri-genera
           state.generated = false;
+          render();
 
           seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', b.getAttribute('data-role')===role ? 'true' : 'false'));
 
-          // Collassa questo step, riapri opzione (pattern cambiato)
-          const roleLabel = role === 'tutor' ? 'Tutor' : 'Dipendente';
-          stepDone('role', roleLabel);
-          stepOpen('option');
-
-          updateRefButtonsEnabled();
-          updateGenerateEnabled();
           updateRefLabels();
-          render();
+          advanceWizard();
         });
       });
 
@@ -3410,8 +3490,10 @@ function buildHolidayMapForYear(year){
       if(editBtn) editBtn.addEventListener('click', ()=>{
         state.anchorPatternIndex = null;
         localStorage.removeItem('anchorPatternIndex');
+        state.generated = false;
+        render();
+        stepHide('option');
         stepOpen('role');
-        stepOpen('option');
         updateRefButtonsEnabled();
         updateGenerateEnabled();
       });
@@ -3433,19 +3515,13 @@ function buildHolidayMapForYear(year){
         state.durationKey = key;
         state.durationMinutes = DURATIONS[key];
         localStorage.setItem('durationKey', key);
-        updateRefButtonsEnabled();
-        updateGenerateEnabled();
-        stepDone('hours', prettyDuration(key));
-        if(state.generated) render();
+        advanceWizard();
       });
 
       // Edit button ore
       const editBtn = document.getElementById('step-hours-edit');
       if(editBtn) editBtn.addEventListener('click', ()=>{ stepOpen('hours'); });
 
-      if(state.durationMinutes){
-        stepDone('hours', prettyDuration(state.durationKey));
-      }
       updateRefButtonsEnabled();
       updateGenerateEnabled();
     }
@@ -3769,8 +3845,9 @@ function buildHolidayMapForYear(year){
         state.startMonth = parseISODate(BASE_START_ISO).getMonth();
         state.startWeekISO = BASE_START_ISO;
 
-        // Riapri step rilevanti
-        ['role','hours','option'].forEach(s => stepOpen(s));
+        // Riapri solo il primo step del wizard
+        ['role','hours','week','option'].forEach(s => stepHide(s));
+        stepOpen('role');
         renderInlineCal();
         const calLbl = document.getElementById('calSelLabel');
         if(calLbl) calLbl.textContent = 'Seleziona settimana';
