@@ -4062,8 +4062,7 @@ function buildHolidayMapForYear(year){
       teams.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t;
-        const hasData = TEAM_RIENTRO_ANCHORS[t] !== undefined;
-        opt.textContent = `Team ${t}${!hasData ? ' (dati in aggiornamento)' : ''}`;
+        opt.textContent = `Team ${t}`;
         sel.appendChild(opt);
       });
       if(state.team !== null) sel.value = state.team;
