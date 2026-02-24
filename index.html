@@ -1126,6 +1126,20 @@
       .cal-month-filter { display: none !important; }
     }
 
+    /* ===== WEEK CAL DIALOG ===== */
+    dialog.week-cal-dialog{
+      border:none; padding:0; background:transparent;
+      width:min(340px, calc(100vw - 32px));
+      border-radius:22px;
+      box-shadow: var(--shadow);
+    }
+    dialog.week-cal-dialog::backdrop{
+      background:rgba(0,0,0,0.5);
+    }
+    dialog.week-cal-dialog .modal-sheet{
+      width:100%; border-radius:22px;
+    }
+
     /* ===== INLINE CALENDAR (selezione settimana) ===== */
     .ical-wrap{
       background:var(--input); border:1px solid var(--stroke);
@@ -1542,9 +1556,9 @@
 
   <!-- Modals -->
 
-  <!-- Modal selezione settimana -->
-  <div class="modal" id="weekCalModal" role="dialog" aria-modal="true" aria-labelledby="weekCalTitle">
-    <div class="modal-sheet" style="max-width:340px;">
+  <!-- Dialog selezione settimana -->
+  <dialog id="weekCalModal" class="week-cal-dialog">
+    <div class="modal-sheet">
       <div class="modal-head">
         <div class="modal-title" id="weekCalTitle"><i class="fa-solid fa-calendar-week" style="margin-right:8px;color:var(--accent);"></i>Settimana di partenza</div>
         <button class="icon-btn" id="closeWeekCalModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
@@ -1566,7 +1580,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </dialog>
 
   <!-- Modal login admin -->
   <div class="modal" id="adminModal" role="dialog" aria-modal="true" aria-labelledby="adminModalTitle">
@@ -2396,7 +2410,8 @@ function buildHolidayMapForYear(year){
           const wl = weekLabel(parseISODate(monday));
           const calLbl = document.getElementById('calSelLabel');
           if(calLbl) calLbl.textContent = wl;
-          closeModal('weekCalModal');
+          const dlg = document.getElementById('weekCalModal');
+          if(dlg) dlg.close();
           updateRefLabels();
           renderInlineCal();
           if(state.generated) render();
@@ -2421,6 +2436,8 @@ function buildHolidayMapForYear(year){
       _icalYear  = state.startWeekISO ? parseISODate(state.startWeekISO).getFullYear() : now.getFullYear();
       _icalMonth = state.startWeekISO ? parseISODate(state.startWeekISO).getMonth()    : now.getMonth();
 
+      const dlg = document.getElementById('weekCalModal');
+
       document.getElementById('calPrev').addEventListener('click', ()=>{
         _icalMonth--; if(_icalMonth < 0){ _icalMonth = 11; _icalYear--; }
         renderInlineCal();
@@ -2430,30 +2447,37 @@ function buildHolidayMapForYear(year){
         renderInlineCal();
       });
 
-      // Apri la modal al click del pulsante scegli settimana
+      // Apri il dialogo al click del pulsante
       const pickerBtn = document.getElementById('weekPickerBtn');
       if(pickerBtn){
         pickerBtn.addEventListener('click', ()=>{
-          // Sync calendario al mese della settimana correntemente selezionata
           if(state.startWeekISO){
             const d = parseISODate(state.startWeekISO);
             _icalYear  = d.getFullYear();
             _icalMonth = d.getMonth();
           } else {
-            const n = new Date();
-            _icalYear  = n.getFullYear();
-            _icalMonth = n.getMonth();
+            _icalYear  = now.getFullYear();
+            _icalMonth = now.getMonth();
           }
           renderInlineCal();
-          openModal('weekCalModal');
+          if(dlg) dlg.showModal();
         });
       }
-      // Chiudi modal col pulsante X
+
+      // Chiudi col pulsante X
       const closeBtn = document.getElementById('closeWeekCalModal');
-      if(closeBtn) closeBtn.addEventListener('click', ()=> closeModal('weekCalModal'));
-      // Chiudi modal cliccando sul backdrop
-      const modal = document.getElementById('weekCalModal');
-      if(modal) modal.addEventListener('click', e=>{ if(e.target.id === 'weekCalModal') closeModal('weekCalModal'); });
+      if(closeBtn) closeBtn.addEventListener('click', ()=>{ if(dlg) dlg.close(); });
+
+      // Chiudi cliccando sul backdrop (click fuori dal dialog sheet)
+      if(dlg){
+        dlg.addEventListener('click', e=>{
+          const rect = dlg.querySelector('.modal-sheet').getBoundingClientRect();
+          if(e.clientX < rect.left || e.clientX > rect.right ||
+             e.clientY < rect.top  || e.clientY > rect.bottom){
+            dlg.close();
+          }
+        });
+      }
 
       // Imposta etichetta se già selezionata
       if(state.startWeekISO){
