@@ -678,34 +678,31 @@
     .cta-save{background: linear-gradient(135deg, rgba(20,184,166,0.95), rgba(92,155,255,0.92));}
     .cta-share{background: linear-gradient(135deg, rgba(92,155,255,0.95), rgba(123,97,255,0.92));}
 
-    /* Toast */
-    .toast{
-      position: fixed;
-      left: 14px;
-      right: 14px;
-      bottom: calc(92px + env(safe-area-inset-bottom));
-      z-index: 250;
-      background: rgba(0,0,0,0.70);
-      color: #fff;
-      padding: 12px 12px;
-      border-radius: 16px;
-      display:none;
-      align-items:center;
-      justify-content:space-between;
+    /* Toast — nascosto */
+    .toast{ display:none !important; }
+
+    /* Step summary chips */
+    .step-sum{
+      display: none;
+      align-items: center;
       gap: 10px;
-      box-shadow: var(--shadow);
-    }
-    .toast.show{display:flex;}
-    .toast small{opacity: 0.9;}
-    .toast button{
-      border: 0;
-      background: rgba(255,255,255,0.18);
-      color:#fff;
-      font-weight: 900;
-      padding: 8px 10px;
+      padding: 9px 14px;
       border-radius: 12px;
-      cursor:pointer;
+      background: rgba(92,155,255,0.09);
+      border: 1px solid var(--stroke);
+      margin-bottom: 2px;
     }
+    html[data-theme="dark"] .step-sum{ background: rgba(92,155,255,0.13); }
+    .step-sum-icon{ font-size:13px; color:#5c9bff; flex-shrink:0; }
+    .step-sum-text{ flex:1; font-size:13px; font-weight:700; }
+    .step-edit-btn{
+      font-size:11px; font-weight:800; color:var(--muted);
+      background:none; border:none; cursor:pointer;
+      padding:3px 8px; border-radius:6px;
+      letter-spacing:0.3px; text-transform:uppercase;
+      transition: background 0.15s, color 0.15s;
+    }
+    .step-edit-btn:hover{ background:var(--stroke); color:var(--fg); }
 
     /* Modal */
     .modal{
@@ -1206,49 +1203,91 @@
 
           <div class="controls-grid">
             <div style="grid-column: 1 / -1;">
-              <span class="control-label">Tipo operatore</span>
-              <div class="segmented" id="roleSegment" role="group" aria-label="Tipo operatore">
-                <button type="button" data-role="dipendente" aria-pressed="false">Dipendente</button>
-                <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
+
+              <!-- Step 1: Ruolo -->
+              <div id="step-role-input">
+                <span class="control-label">Tipo operatore</span>
+                <div class="segmented" id="roleSegment" role="group" aria-label="Tipo operatore">
+                  <button type="button" data-role="dipendente" aria-pressed="false">Dipendente</button>
+                  <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
+                </div>
+              </div>
+              <div id="step-role-sum" class="step-sum">
+                <i class="fa-solid fa-user step-sum-icon"></i>
+                <span class="step-sum-text" id="step-role-text"></span>
+                <button class="step-edit-btn" id="step-role-edit" type="button">Modifica</button>
               </div>
 
               <div class="spacer-8"></div>
-              <span class="control-label">Monte ore giornaliero</span>
-              <div class="segmented" id="hoursSegment" role="group" aria-label="Ore giornaliere">
-                <button type="button" data-hours="4h" aria-pressed="false">4h</button>
-                <button type="button" data-hours="6h" aria-pressed="false">6h</button>
-                <button type="button" data-hours="6h40" aria-pressed="false">6h 40m</button>
-                <button type="button" data-hours="7h55" aria-pressed="false">7h 55m</button>
+
+              <!-- Step 2: Ore -->
+              <div id="step-hours-input">
+                <span class="control-label">Monte ore giornaliero</span>
+                <div class="segmented" id="hoursSegment" role="group" aria-label="Ore giornaliere">
+                  <button type="button" data-hours="4h" aria-pressed="false">4h</button>
+                  <button type="button" data-hours="6h" aria-pressed="false">6h</button>
+                  <button type="button" data-hours="6h40" aria-pressed="false">6h 40m</button>
+                  <button type="button" data-hours="7h55" aria-pressed="false">7h 55m</button>
+                </div>
+                <div class="hint-row" id="hoursHintRow" style="display:none;">
+                  <span class="hint-pill"><i class="fa-solid fa-clock"></i> <span id="hoursHint"></span></span>
+                </div>
               </div>
-              <div class="hint-row" id="hoursHintRow" style="display:none;">
-                <span class="hint-pill"><i class="fa-solid fa-clock"></i> <span id="hoursHint"></span></span>
+              <div id="step-hours-sum" class="step-sum">
+                <i class="fa-solid fa-clock step-sum-icon"></i>
+                <span class="step-sum-text" id="step-hours-text"></span>
+                <button class="step-edit-btn" id="step-hours-edit" type="button">Modifica</button>
               </div>
             </div>
 
+            <!-- Step 3: Mese -->
             <div>
-              <span class="control-label">Mese di partenza</span>
-              <button class="select-like" id="monthBtn" type="button" disabled>
-                <span class="select-like__left"><i class="fa-solid fa-calendar-days"></i><span id="monthBtnLabel">Seleziona mese</span></span>
-                <i class="fa-solid fa-chevron-down"></i>
-              </button>
+              <div id="step-month-input">
+                <span class="control-label">Mese di partenza</span>
+                <button class="select-like" id="monthBtn" type="button" disabled>
+                  <span class="select-like__left"><i class="fa-solid fa-calendar-days"></i><span id="monthBtnLabel">Seleziona mese</span></span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              </div>
+              <div id="step-month-sum" class="step-sum">
+                <i class="fa-solid fa-calendar-days step-sum-icon"></i>
+                <span class="step-sum-text" id="step-month-text"></span>
+                <button class="step-edit-btn" id="step-month-edit" type="button">Modifica</button>
+              </div>
             </div>
 
+            <!-- Step 4: Settimana -->
             <div>
-              <span class="control-label">Settimana di partenza</span>
-              <button class="select-like" id="weekBtn" type="button" disabled>
-                <span class="select-like__left"><span id="weekBtnLabel">Seleziona settimana</span></span>
-                <i class="fa-solid fa-chevron-down"></i>
-              </button>
+              <div id="step-week-input">
+                <span class="control-label">Settimana di partenza</span>
+                <button class="select-like" id="weekBtn" type="button" disabled>
+                  <span class="select-like__left"><span id="weekBtnLabel">Seleziona settimana</span></span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+              </div>
+              <div id="step-week-sum" class="step-sum">
+                <i class="fa-solid fa-calendar-week step-sum-icon"></i>
+                <span class="step-sum-text" id="step-week-text"></span>
+                <button class="step-edit-btn" id="step-week-edit" type="button">Modifica</button>
+              </div>
             </div>
 
+            <!-- Step 5: Orario -->
             <div style="grid-column: 1 / -1;">
-              <span class="control-label">Orario e riposi (della settimana selezionata)</span>
-              <button class="select-like" id="optionBtn" type="button" disabled>
-                <span class="select-like__left"><span id="optionLabel">Seleziona orario</span></span>
-                <i class="fa-solid fa-chevron-down"></i>
-              </button>
-              <div class="hint-row" id="refHintRow" style="display:none;">
-                <span class="hint-pill"><i class="fa-solid fa-anchor"></i> <span id="refHint"></span></span>
+              <div id="step-option-input">
+                <span class="control-label">Orario e riposi (della settimana selezionata)</span>
+                <button class="select-like" id="optionBtn" type="button" disabled>
+                  <span class="select-like__left"><span id="optionLabel">Seleziona orario</span></span>
+                  <i class="fa-solid fa-chevron-down"></i>
+                </button>
+                <div class="hint-row" id="refHintRow" style="display:none;">
+                  <span class="hint-pill"><i class="fa-solid fa-anchor"></i> <span id="refHint"></span></span>
+                </div>
+              </div>
+              <div id="step-option-sum" class="step-sum">
+                <i class="fa-solid fa-clock-rotate-left step-sum-icon"></i>
+                <span class="step-sum-text" id="step-option-text"></span>
+                <button class="step-edit-btn" id="step-option-edit" type="button">Modifica</button>
               </div>
             </div>
           </div>
@@ -1359,15 +1398,7 @@
       setTimeout(() => r.remove(), 650);
     }
 
-    function toast(title, msg){
-      const t = document.getElementById('toast');
-      document.getElementById('toastTitle').textContent = title;
-      document.getElementById('toastMsg').textContent = msg || '';
-      t.classList.add('show');
-      clearTimeout(toast._timer);
-      toast._timer = setTimeout(()=>t.classList.remove('show'), 2600);
-    }
-    document.getElementById('toastClose').addEventListener('click', ()=>document.getElementById('toast').classList.remove('show'));
+    function toast(title, msg){ /* notifiche disabilitate */ }
 
     
 
@@ -2056,6 +2087,11 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('startWeekISO', state.startWeekISO);
           updateRefLabels();
           closeModal('weekModal');
+
+          // Collassa step settimana, riapri opzione
+          stepDone('week', w.label);
+          stepOpen('option');
+
           if(state.generated) render();
         });
         list.appendChild(b);
@@ -2080,6 +2116,10 @@ function buildHolidayMapForYear(year){
           localStorage.setItem('anchorPatternIndex', String(state.anchorPatternIndex));
           updateRefLabels();
           closeModal('optionModal');
+
+          // Collassa step opzione
+          stepDone('option', optionText(ACTIVE_PATTERN[idx]));
+
           if(state.generated) render();
         });
         list.appendChild(b);
@@ -2114,23 +2154,13 @@ function buildHolidayMapForYear(year){
         oLabel.textContent = 'Seleziona orario';
       }
 
-      // Hint sintetico
-      const refOk = !!state.durationMinutes && state.startMonth !== null && !!state.startWeekISO && state.anchorPatternIndex !== null;
+      // Hint sintetico (nascosto, mantenuto per compatibilità)
       const hintRow = document.getElementById('refHintRow');
-      if(refOk){
-        hintRow.style.display = 'flex';
-        const monthText = MONTHS[state.startMonth];
-        const weekText = weekLabel(parseISODate(state.startWeekISO));
-        const optText = optionText(ACTIVE_PATTERN[state.anchorPatternIndex]);
-        document.getElementById('refHint').textContent = `${monthText} • ${weekText} • ${optText}`;
-      } else {
-        hintRow.style.display = 'none';
-      }
+      if(hintRow) hintRow.style.display = 'none';
 
       initMonthModal();
       initWeekModal();
       initOptionModal();
-      updateRefButtonsEnabled();
       updateRefButtonsEnabled();
       updateGenerateEnabled();
     }
@@ -2138,6 +2168,45 @@ function buildHolidayMapForYear(year){
     function updateGenerateEnabled(){
       const ok = !!state.role && !!state.durationMinutes && state.startMonth !== null && state.startWeekISO && state.anchorPatternIndex !== null;
       document.getElementById('generateBtn' ).disabled = !ok;
+    }
+
+    // --------- Step helpers ---------
+    function stepDone(stepId, text){
+      const inp = document.getElementById(`step-${stepId}-input`);
+      const sum = document.getElementById(`step-${stepId}-sum`);
+      const txt = document.getElementById(`step-${stepId}-text`);
+      if(inp) inp.style.display = 'none';
+      if(sum) sum.style.display = 'flex';
+      if(txt) txt.textContent = text;
+    }
+    function stepOpen(stepId){
+      const inp = document.getElementById(`step-${stepId}-input`);
+      const sum = document.getElementById(`step-${stepId}-sum`);
+      if(inp) inp.style.display = '';
+      if(sum) sum.style.display = 'none';
+    }
+    function syncStepsFromState(){
+      // Ruolo
+      if(state.role){
+        const roleLabel = state.role === 'tutor' ? 'Tutor' : 'Dipendente';
+        stepDone('role', roleLabel);
+      } else { stepOpen('role'); }
+      // Ore
+      if(state.durationKey){
+        stepDone('hours', prettyDuration(state.durationKey));
+      } else { stepOpen('hours'); }
+      // Mese
+      if(state.startMonth !== null){
+        stepDone('month', MONTHS[state.startMonth]);
+      } else { stepOpen('month'); }
+      // Settimana
+      if(state.startWeekISO){
+        stepDone('week', weekLabel(parseISODate(state.startWeekISO)));
+      } else { stepOpen('week'); }
+      // Opzione
+      if(state.anchorPatternIndex !== null){
+        stepDone('option', optionText(ACTIVE_PATTERN[state.anchorPatternIndex]));
+      } else { stepOpen('option'); }
     }
 
     function initRole(){
@@ -2172,11 +2241,27 @@ function buildHolidayMapForYear(year){
 
           seg.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', b.getAttribute('data-role')===role ? 'true' : 'false'));
 
+          // Collassa questo step, riapri opzione (pattern cambiato)
+          const roleLabel = role === 'tutor' ? 'Tutor' : 'Dipendente';
+          stepDone('role', roleLabel);
+          stepOpen('option');
+
           updateRefButtonsEnabled();
           updateGenerateEnabled();
           updateRefLabels();
           render();
         });
+      });
+
+      // Edit button
+      const editBtn = document.getElementById('step-role-edit');
+      if(editBtn) editBtn.addEventListener('click', ()=>{
+        state.anchorPatternIndex = null;
+        localStorage.removeItem('anchorPatternIndex');
+        stepOpen('role');
+        stepOpen('option');
+        updateRefButtonsEnabled();
+        updateGenerateEnabled();
       });
     }
 
@@ -2207,9 +2292,16 @@ function buildHolidayMapForYear(year){
           updateRefButtonsEnabled();
           updateGenerateEnabled();
 
+          // Collassa step ore
+          stepDone('hours', prettyDuration(key));
+
           if(state.generated) render();
         });
       });
+
+      // Edit button ore
+      const editBtn = document.getElementById('step-hours-edit');
+      if(editBtn) editBtn.addEventListener('click', ()=>{ stepOpen('hours'); });
 
       if(state.durationMinutes){
         document.getElementById('hoursHintRow').style.display = 'flex';
@@ -2545,6 +2637,9 @@ function buildHolidayMapForYear(year){
         state.startMonth = parseISODate(BASE_START_ISO).getMonth();
         state.startWeekISO = BASE_START_ISO;
 
+        // Riapri tutti gli step
+        ['role','hours','month','week','option'].forEach(s => stepOpen(s));
+
         localStorage.removeItem('operatorRole');
         localStorage.removeItem('durationKey');
         localStorage.removeItem('anchorPatternIndex');
@@ -2609,6 +2704,28 @@ function buildHolidayMapForYear(year){
         });
         if(state.generated) render();
       });
+
+      // Edit buttons per mese, settimana, opzione
+      const mEdit = document.getElementById('step-month-edit');
+      if(mEdit) mEdit.addEventListener('click', ()=>{
+        stepOpen('month');
+        // Anche settimana torna a essere visibile
+        if(state.startMonth !== null){ stepOpen('week'); }
+        updateRefButtonsEnabled();
+      });
+      const wEdit = document.getElementById('step-week-edit');
+      if(wEdit) wEdit.addEventListener('click', ()=>{
+        stepOpen('week');
+        updateRefButtonsEnabled();
+      });
+      const oEdit = document.getElementById('step-option-edit');
+      if(oEdit) oEdit.addEventListener('click', ()=>{
+        stepOpen('option');
+        updateRefButtonsEnabled();
+      });
+
+      // Riconcilia stato UI con stato salvato in localStorage
+      syncStepsFromState();
 
       // Improve touch scrolling: keep vertical pan enabled even over the table
       document.addEventListener('touchmove', ()=>{}, {passive:true});
