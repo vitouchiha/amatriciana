@@ -1599,6 +1599,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 
+  <!-- Firebase 9 compat (app + auth + firestore) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
   <script>
     // --------- Micro feedback ---------
     const clickAudio = (() => {
@@ -2408,8 +2413,75 @@ function buildHolidayMapForYear(year){
       document.getElementById('generateBtn' ).disabled = !ok;
     }
 
+    // ===== FIREBASE =====
+    // ► STEP 1: incolla qui il tuo firebaseConfig copiato dalla console Firebase
+    const FIREBASE_CONFIG = {
+      apiKey:            'INSERISCI_API_KEY',
+      authDomain:        'INSERISCI_AUTH_DOMAIN',
+      projectId:         'INSERISCI_PROJECT_ID',
+      storageBucket:     'INSERISCI_STORAGE_BUCKET',
+      messagingSenderId: 'INSERISCI_MESSAGING_SENDER_ID',
+      appId:             'INSERISCI_APP_ID'
+    };
+    // ► STEP 2: inserisci l'email dell'utente che hai creato in Firebase Authentication
+    const FIREBASE_EMAIL = 'INSERISCI_EMAIL_FIREBASE';
+    // ► STEP 3: la password Firebase deve coincidere con ADMIN_PASS qui sotto
+
+    let _fbApp = null, _fbAuth = null, _fbDb = null, _fbReady = false;
+    let _fbInitPromise = Promise.resolve(); // risolve appena Firebase è pronto
+    const _FB_DOC = 'userdata/main'; // unico documento Firestore
+
+    function _fbConfigured(){
+      return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.startsWith('INSERISCI');
+    }
+
+    function initFirebase(){
+      if(!_fbConfigured()) return (_fbInitPromise = Promise.resolve());
+      try{
+        _fbApp  = firebase.initializeApp(FIREBASE_CONFIG);
+        _fbAuth = firebase.auth(_fbApp);
+        _fbDb   = firebase.firestore(_fbApp);
+      } catch(e){ console.warn('[FB] init error:', e); return (_fbInitPromise = Promise.resolve()); }
+
+      _fbInitPromise = _fbAuth.signInWithEmailAndPassword(FIREBASE_EMAIL, ADMIN_PASS)
+        .then(() => { _fbReady = true; })
+        .catch(err => console.warn('[FB] auth error (app funziona lo stesso con localStorage):', err.message));
+      return _fbInitPromise;
+    }
+
+    // Salva TUTTO su Firestore (colleghi + config matrice)
+    function fbSave(){
+      if(!_fbReady) return;
+      const doc = {
+        colleghi: state.colleghi,
+        config: {
+          role:               state.role,
+          durationKey:        state.durationKey,
+          durationMinutes:    state.durationMinutes,
+          startWeekISO:       state.startWeekISO,
+          anchorPatternIndex: state.anchorPatternIndex,
+          startMonth:         state.startMonth,
+          generated:          state.generated
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      _fbDb.doc(_FB_DOC).set(doc).catch(e => console.warn('[FB] save error:', e));
+    }
+
+    // Carica da Firestore attendendo il sign-in; returns Promise<data|null>
+    function fbLoad(){
+      return _fbInitPromise.then(() => {
+        if(!_fbReady) return null;
+        return _fbDb.doc(_FB_DOC).get()
+          .then(snap => snap.exists ? snap.data() : null)
+          .catch(e => { console.warn('[FB] load error:', e); return null; });
+      });
+    }
+    // ===== FINE FIREBASE =====
+
     // ===== ADMIN =====
     // Cambia questa password per proteggere il pannello admin
+    // (deve essere UGUALE alla password dell'utente Firebase che hai creato)
     const ADMIN_PASS = 'admin1234';
 
     function isAdminSession(){
@@ -2528,9 +2600,10 @@ function buildHolidayMapForYear(year){
       return null;
     }
 
-    // Salva colleghi su localStorage
+    // Salva colleghi su localStorage e Firestore
     function saveColleghi(){
       safeStorageSet('colleghi', JSON.stringify(state.colleghi));
+      fbSave();
     }
 
     // Renderizza la lista team
@@ -2873,8 +2946,39 @@ function buildHolidayMapForYear(year){
       dateInput.addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
     }
 
+    // Applica dati Firebase allo state e aggiorna la UI
+    function applyFirebaseData(fbData){
+      if(!fbData) return;
+
+      // Colleghi
+      if(Array.isArray(fbData.colleghi)){
+        state.colleghi = fbData.colleghi;
+        safeStorageSet('colleghi', JSON.stringify(state.colleghi));
+      }
+
+      // Config matrice
+      const cfg = fbData.config || {};
+      if(cfg.role && (cfg.role === 'dipendente' || cfg.role === 'tutor')){
+        state.role            = cfg.role;
+        state.durationKey     = cfg.durationKey     ?? state.durationKey;
+        state.durationMinutes = cfg.durationMinutes ?? state.durationMinutes;
+        state.startWeekISO    = cfg.startWeekISO    ?? state.startWeekISO;
+        state.anchorPatternIndex = (cfg.anchorPatternIndex !== undefined && cfg.anchorPatternIndex !== null)
+          ? cfg.anchorPatternIndex : state.anchorPatternIndex;
+        state.startMonth      = cfg.startMonth      ?? state.startMonth;
+        state.generated       = !!cfg.generated;
+        setActiveRole(state.role);
+        // Aggiorna localStorage per coerenza
+        safeStorageSet('operatorRole',        state.role);
+        if(state.durationKey)            safeStorageSet('durationKey', state.durationKey);
+        if(state.anchorPatternIndex !== null) safeStorageSet('anchorPatternIndex', String(state.anchorPatternIndex));
+        if(state.startMonth !== null)    safeStorageSet('startMonth', String(state.startMonth));
+        if(state.startWeekISO)           safeStorageSet('startWeekISO', state.startWeekISO);
+      }
+    }
+
     function initTeam(){
-      // Carica colleghi da localStorage
+      // Carica colleghi da localStorage (fallback immediato)
       try{ state.colleghi = JSON.parse(safeStorageGet('colleghi') || '[]'); } catch(e){ state.colleghi = []; }
 
       bindAdminModal();
@@ -2885,6 +2989,17 @@ function buildHolidayMapForYear(year){
 
       bindColleagueModal();
       bindSearchByDate();
+
+      // Prova a caricare da Firestore (sovrascrive localStorage se ci sono dati più recenti)
+      fbLoad().then(fbData => {
+        if(!fbData) return;
+        applyFirebaseData(fbData);
+        // Aggiorna UI se arrivano dati dal cloud
+        renderTeamList();
+        syncStepsFromState();
+        if(state.generated){ render(); }
+        else { updateGenerateEnabled(); }
+      });
     }
 
     // ===== FINE TEAM =====
@@ -3320,6 +3435,9 @@ function buildHolidayMapForYear(year){
       // Ore (attiva/disable UI)
       initHours();
 
+      // Firebase (avvia sign-in async; initTeam lo attende tramite _fbInitPromise)
+      initFirebase();
+
       // Team e cerca per data
       initTeam();
 
@@ -3344,6 +3462,7 @@ function buildHolidayMapForYear(year){
         state.generated = true;
         render();
         toast('Ok', `Matrice generata (${computeTotalWeeks()} settimane).`);
+        fbSave(); // sincronizza config matrice su Firestore
       });
 
       // Reset
@@ -3366,6 +3485,7 @@ function buildHolidayMapForYear(year){
         localStorage.removeItem('anchorPatternIndex');
         localStorage.removeItem('startMonth');
         localStorage.removeItem('startWeekISO');
+        fbSave(); // aggiorna Firestore dopo reset
 
         // UI reset ruolo
         document.querySelectorAll('#roleSegment button').forEach(b => b.setAttribute('aria-pressed','false'));
