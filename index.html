@@ -4001,7 +4001,7 @@ function buildHolidayMapForYear(year){
     function initTheme(){
       const saved = localStorage.getItem('theme');
       if (saved === 'dark' || saved === 'light') setTheme(saved);
-      else setTheme('dark');
+      else setTheme('light');
     }
 
     function initViewToggle(){
@@ -4255,15 +4255,11 @@ function buildHolidayMapForYear(year){
       if(savedWeek){
         state.startWeekISO = savedWeek;
       }
+      // No fallback for startWeekISO: if nothing saved → stays null (clean wizard, no pre-selection)
 
-      // Default se manca qualcosa
+      // Default startMonth only for calendar picker navigation (not exposed as a visible selection)
       if(state.startMonth === null){
         state.startMonth = parseISODate(BASE_START_ISO).getMonth();
-      }
-      if(!state.startWeekISO){
-        // prima settimana che tocca il mese scelto
-        const possible = weeksForSelectedMonth();
-        state.startWeekISO = possible.length ? possible[0].iso : BASE_START_ISO;
       }
 
       // Ruolo operatore (Dipendente/Tutor)
