@@ -1359,12 +1359,6 @@
             </button>
             <span class="label">Salva</span>
           </div>
-          <div class="ctrl">
-            <button class="icon-btn btn-share" id="shareTopBtn" type="button" aria-label="Condividi" disabled>
-              <i class="fa-solid fa-share-nodes"></i>
-            </button>
-            <span class="label">Share</span>
-          </div>
         </div>
       </div>
     </header>
@@ -2280,9 +2274,7 @@ function buildHolidayMapForYear(year){
         previewWrap.classList.remove('is-visible');
         empty.style.display = 'flex';
         const saveBtn = document.getElementById('saveTopBtn');
-        const shareBtn2 = document.getElementById('shareTopBtn');
         if(saveBtn) saveBtn.disabled = true;
-        if(shareBtn2) shareBtn2.disabled = true;
         return;
       }
 
@@ -2305,11 +2297,9 @@ function buildHolidayMapForYear(year){
       previewWrap.classList.add('is-visible');
       empty.style.display = 'none';
 
-      // Abilita sempre i tasti export dopo la generazione
+      // Abilita il tasto salva dopo la generazione
       const saveBtn = document.getElementById('saveTopBtn');
-      const shareBtn = document.getElementById('shareTopBtn');
       if(saveBtn) saveBtn.disabled = false;
-      if(shareBtn) shareBtn.disabled = false;
 
       // Aggiorna sottotitolo brand
       const sub = document.getElementById('brandSub');
@@ -3602,6 +3592,137 @@ function buildHolidayMapForYear(year){
     }
 
     // --------- Export (PNG) ---------
+    // Costruisce un nodo calendario completamente con stili inline per html2canvas
+    function buildCalendarExportNode(){
+      const weeks = buildMatrixData();
+      const todayISO = isoDate(new Date());
+      const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+
+      const monthMap = new Map();
+      weeks.forEach(w => {
+        w.days.forEach(d => {
+          const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
+          if(!monthMap.has(key)) monthMap.set(key, []);
+          monthMap.get(key).push(d);
+        });
+      });
+
+      const container = document.createElement('div');
+      container.style.cssText = 'background:#fff; font-family: system-ui,-apple-system,sans-serif; display:flex; flex-wrap:wrap; gap:12px; padding:4px;';
+
+      monthMap.forEach((days, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const monthName = MONTHS[m-1] + ' ' + y;
+        const firstOfMonth = new Date(y, m-1, 1);
+        const dowFirst = firstOfMonth.getDay();
+        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1;
+        const dayByISO = new Map();
+        days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
+        const daysInMonth = new Date(y, m, 0).getDate();
+
+        let workDays = 0;
+        for(let day = 1; day <= daysInMonth; day++){
+          const iso = isoDate(new Date(y, m-1, day));
+          const d = dayByISO.get(iso);
+          if(d && !d.isRest && !d.isHoliday) workDays++;
+        }
+        const totalMins = workDays * (state.durationMinutes || 0);
+        const totH = Math.floor(totalMins / 60);
+        const totM = totalMins % 60;
+        const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' ' + totM + 'm' : ''}` : '—';
+
+        const card = document.createElement('div');
+        card.style.cssText = 'border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.08); width:348px; flex-shrink:0;';
+
+        const titleEl = document.createElement('div');
+        titleEl.style.cssText = 'font-weight:900; font-size:14px; padding:11px 14px; display:flex; justify-content:space-between; align-items:center; background:linear-gradient(90deg,rgba(92,155,255,0.14),rgba(123,97,255,0.09)); border-bottom:1px solid #e2e8f0;';
+        titleEl.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
+        card.appendChild(titleEl);
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:grid; grid-template-columns:repeat(7,1fr); border-top:1px solid #e2e8f0;';
+
+        DOW_LABELS.forEach((dl, i) => {
+          const dow = document.createElement('div');
+          dow.style.cssText = `text-align:center; font-size:10px; font-weight:900; color:#64748b; padding:7px 2px; border-right:${i<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:#f8fafc; letter-spacing:0.3px;`;
+          dow.textContent = dl;
+          grid.appendChild(dow);
+        });
+
+        for(let i = 0; i < offsetMon; i++){
+          const empty = document.createElement('div');
+          const col = i % 7;
+          empty.style.cssText = `min-height:64px; border-right:${col<6?'1px solid #e2e8f0':'0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
+          grid.appendChild(empty);
+        }
+
+        for(let day = 1; day <= daysInMonth; day++){
+          const dateObj = new Date(y, m-1, day);
+          const iso = isoDate(dateObj);
+          const d = dayByISO.get(iso);
+          const isToday = iso === todayISO;
+          const colPos = (offsetMon + day - 1) % 7;
+          const isLast = colPos === 6;
+          let bg = d ? (d.isRest ? 'rgba(239,68,68,0.04)' : d.isHoliday ? 'rgba(239,68,68,0.07)' : '#fff') : 'rgba(0,0,0,0.012)';
+          const cell = document.createElement('div');
+          cell.style.cssText = `min-height:64px; padding:5px 4px; border-right:${isLast?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:${bg};`;
+
+          const numEl = document.createElement('div');
+          numEl.style.cssText = `font-size:11px; font-weight:900; color:${isToday?'#5c9bff':'#94a3b8'}; line-height:1; margin-bottom:1px;`;
+          numEl.textContent = day;
+          cell.appendChild(numEl);
+
+          if(d){
+            if(d.isRest){
+              const lib = document.createElement('div');
+              lib.style.cssText = 'font-size:10px; font-weight:900; color:#ef4444; letter-spacing:0.1px;';
+              lib.textContent = 'LIBERO';
+              cell.appendChild(lib);
+            } else if(d.isHoliday){
+              const t = document.createElement('div');
+              t.style.cssText = 'font-size:11px; font-weight:900; color:#ef4444; line-height:1.15;';
+              t.textContent = d.start;
+              cell.appendChild(t);
+              const te = document.createElement('div');
+              te.style.cssText = 'font-size:10px; font-weight:700; color:#ef4444;';
+              te.textContent = d.end;
+              cell.appendChild(te);
+              const hn = document.createElement('div');
+              hn.style.cssText = 'font-size:9px; font-weight:900; color:#ef4444; line-height:1.2; word-break:break-word;';
+              hn.textContent = d.holidayName;
+              cell.appendChild(hn);
+            } else {
+              const t = document.createElement('div');
+              t.style.cssText = 'font-size:11px; font-weight:900; color:#1e293b; line-height:1.15;';
+              t.textContent = d.start;
+              cell.appendChild(t);
+              const te = document.createElement('div');
+              te.style.cssText = 'font-size:10px; font-weight:700; color:#64748b;';
+              te.textContent = d.end;
+              cell.appendChild(te);
+            }
+          }
+          grid.appendChild(cell);
+        }
+
+        const totalCells = offsetMon + daysInMonth;
+        const rem = totalCells % 7;
+        if(rem !== 0){
+          for(let i = 0; i < 7 - rem; i++){
+            const colPos2 = (totalCells + i) % 7;
+            const isLast2 = colPos2 === 6;
+            const empty = document.createElement('div');
+            empty.style.cssText = `min-height:64px; border-right:${isLast2?'0':'1px solid #e2e8f0'}; border-bottom:1px solid #e2e8f0; background:rgba(0,0,0,0.012);`;
+            grid.appendChild(empty);
+          }
+        }
+        card.appendChild(grid);
+        container.appendChild(card);
+      });
+
+      return container;
+    }
+
     function buildExportNode(){
       const root = document.createElement('div');
       root.className = 'export-root';
@@ -3638,9 +3759,7 @@ function buildHolidayMapForYear(year){
         clone.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
         root.appendChild(clone);
       } else if(state.viewMode === 'calendar'){
-        const src = document.getElementById('matrixCalendarWrap');
-        if(!src) return null;
-        root.appendChild(src.cloneNode(true));
+        root.appendChild(buildCalendarExportNode());
       } else {
         return null;
       }
@@ -3880,9 +3999,8 @@ function buildHolidayMapForYear(year){
         });
       }
 
-      // Export buttons — ora direttamente sui tasti topbar
+      // Export buttons
       document.getElementById('saveTopBtn').addEventListener('click', savePng);
-      document.getElementById('shareTopBtn').addEventListener('click', sharePng);
 
       // Stampa: mostra solo vista attiva, apri tutti i details
       window.addEventListener('beforeprint', () => {
