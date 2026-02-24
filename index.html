@@ -1062,6 +1062,74 @@
       .brand h1{ font-size:14px; }
     }
 
+    /* Evidenzia riga/cella corrente nella tabella */
+    .matrix-table tr.row-today > td { background: rgba(92,155,255,0.08) !important; }
+    html[data-theme="dark"] .matrix-table tr.row-today > td { background: rgba(92,155,255,0.12) !important; }
+    .matrix-table td.cell-today { outline: 2px solid var(--accent); outline-offset: -3px; border-radius: 4px; }
+
+    /* Weekend non-riposo nel calendario */
+    .cal-cell.cal-weekend { background: rgba(11,16,32,0.03); }
+    html[data-theme="dark"] .cal-cell.cal-weekend { background: rgba(255,255,255,0.03); }
+
+    /* Filtro rapido mese nel calendario */
+    .cal-month-filter {
+      display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 10px;
+      -webkit-overflow-scrolling: touch; scrollbar-width: none;
+    }
+    .cal-month-filter::-webkit-scrollbar { display: none; }
+    .cal-month-pill {
+      flex: 0 0 auto;
+      padding: 6px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--stroke);
+      background: rgba(255,255,255,0.35);
+      color: var(--text);
+      font-size: 12px; font-weight: 900;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    html[data-theme="dark"] .cal-month-pill { background: rgba(0,0,0,0.20); }
+    .cal-month-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Indicatore vista attiva sotto il tasto */
+    .ctrl .label { transition: color 0.2s; }
+
+    /* Calendario responsivo su schermi piccoli */
+    @media (max-width: 480px) {
+      .cal-cell { min-height: 52px; padding: 4px 3px; }
+      .cal-day-num { font-size: 10px; }
+      .cal-time { font-size: 11px; }
+      .cal-time-end { font-size: 10px; }
+      .cal-libero { font-size: 10px; }
+      .cal-hname { font-size: 9px; }
+      .cal-dow { font-size: 10px; padding: 6px 2px; }
+      .cal-month-title { font-size: 13px; }
+    }
+    @media (max-width: 360px) {
+      .calendar-wrap { overflow-x: auto; }
+      .cal-grid { min-width: 320px; }
+    }
+
+    /* CSS Stampa */
+    @media print {
+      body { background: #fff !important; padding: 0 !important; padding-bottom: 0 !important; }
+      .topbar, .bottom-bar, #bottomBar, .toast, .card-head button, #generateBtn, #resetBtn, .row-actions { display: none !important; }
+      .card:first-child .card-body { display: none !important; }
+      .app-shell { padding-top: 0 !important; }
+      .card { box-shadow: none !important; border: 1px solid #e5e7eb !important; background: #fff !important; backdrop-filter: none !important; }
+      .preview-wrap { display: block !important; }
+      #matrixTableWrap, #matrixCardsWrap, #matrixCalendarWrap { display: none !important; }
+      #matrixTableWrap.print-show, #matrixCardsWrap.print-show, #matrixCalendarWrap.print-show { display: block !important; }
+      .matrix-container { overflow: visible !important; box-shadow: none !important; border: 1px solid #e5e7eb !important; }
+      .matrix-table th, .matrix-table td { position: static !important; backdrop-filter: none !important; }
+      .matrix-table th { background: #f1f5f9 !important; color: #0b1020 !important; }
+      .matrix-table td { background: #fff !important; color: #0b1020 !important; }
+      .week-card { break-inside: avoid; }
+      .cal-month { break-inside: avoid; margin-bottom: 8px; }
+      .cal-month-filter { display: none !important; }
+    }
+
 </style>
 </head>
 
@@ -1078,7 +1146,13 @@
           <button class="icon-btn" id="viewToggle" type="button" aria-label="Cambia vista">
             <i class="fa-solid fa-layer-group"></i>
           </button>
-          <span class="label">Vista</span>
+          <span class="label" id="viewLabel">Tabella</span>
+        </div>
+        <div class="ctrl">
+          <button class="icon-btn" id="todayBtn" type="button" aria-label="Vai ad oggi">
+            <i class="fa-solid fa-calendar-day"></i>
+          </button>
+          <span class="label">Oggi</span>
         </div>
         <div class="ctrl">
           <button class="icon-btn" id="themeToggle" type="button" aria-label="Tema">
@@ -1626,16 +1700,19 @@ function buildHolidayMapForYear(year){
     function renderTable(weeks){
       const wrap = document.getElementById('matrixTableWrap');
       const cols = ['Settimana', ...DAYS];
+      const todayISO = isoDate(new Date());
 
       let html = '<div class="matrix-container"><table class="matrix-table" id="matrixTable"><thead><tr>';
       cols.forEach(c => html += `<th>${c}</th>`);
       html += '</tr></thead><tbody>';
 
       weeks.forEach(w => {
-        html += `<tr class="${w.inMonth ? '' : 'row-dim'}">`;
+        const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+        html += `<tr class="${w.inMonth ? '' : 'row-dim'}${isRowToday ? ' row-today' : ''}">`;
         html += `<td><span class="week-label"><span class="sr-only">Settimana ${w.weekIndex+1}</span>${w.label}</span></td>`;
 
         w.days.forEach(d => {
+          const isToday = isoDate(d.dateObj) === todayISO;
           let cellHtml = `<div class="cell-stack">`;
           if (d.holidayName){
             cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
@@ -1646,7 +1723,7 @@ function buildHolidayMapForYear(year){
             cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
           }
           cellHtml += `</div>`;
-          html += `<td>${cellHtml}</td>`;
+          html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
         });
 
         html += '</tr>';
@@ -1659,9 +1736,11 @@ function buildHolidayMapForYear(year){
     function renderCards(weeks){
       const wrap = document.getElementById('matrixCardsWrap');
       if(!wrap) return;
+      const todayISO = isoDate(new Date());
       let html = '';
       weeks.forEach((w, idx)=>{
-        const open = idx === 0 ? ' open' : '';
+        const isWeekToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+        const open = (idx === 0 || isWeekToday) ? ' open' : '';
         html += `<details class="week-card"${open}>`;
         html += `<summary>`;
         html += `<div class="wc-left"><div class="wc-title">${w.label}</div>`;
@@ -1671,6 +1750,7 @@ function buildHolidayMapForYear(year){
         html += `<div class="wc-body">`;
         w.days.forEach(d=>{
           const dateTxt = fmtDayMonth(d.dateObj);
+          const isToday = isoDate(d.dateObj) === todayISO;
           let right = '';
           if(d.holidayName){
             right = `<div class="day-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div><div class="holiday-name">${escapeHtml(d.holidayName)}</div>`;
@@ -1679,7 +1759,8 @@ function buildHolidayMapForYear(year){
           } else {
             right = `<div class="day-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
           }
-          html += `<div class="day-row ${w.inMonth ? '' : 'row-dim'}">` +
+          html += `<div class="day-row ${w.inMonth ? '' : 'row-dim'}${isToday ? ' day-row-today' : ''}"` +
+                  `${isToday ? ' style="outline:2px solid var(--accent);outline-offset:-2px;border-radius:14px;"' : ''}>` +
                   `<div class="day-left"><div class="day-name">${d.dayName}</div><div class="day-date">${dateTxt}</div></div>` +
                   `<div class="day-right">${right}</div>` +
                   `</div>`;
@@ -1695,9 +1776,10 @@ function buildHolidayMapForYear(year){
       if(!wrap) return;
 
       const todayISO = isoDate(new Date());
+      const weekendDowIdx = new Set([5, 6]); // Sab=5, Dom=6 (da Lun=0)
 
       // Raggruppa i giorni per mese
-      const monthMap = new Map(); // key: 'YYYY-MM', value: [{dateISO, dayName, isRest, start, end, isHoliday, holidayName}]
+      const monthMap = new Map();
       weeks.forEach(w => {
         w.days.forEach(d => {
           const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
@@ -1707,42 +1789,58 @@ function buildHolidayMapForYear(year){
       });
 
       const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
-      let html = '';
+
+      // Filtro mese rapido
+      let html = '<div class="cal-month-filter" id="calMonthFilterPills">';
+      monthMap.forEach((_, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const short = MONTHS[m-1].substring(0,3);
+        html += `<button class="cal-month-pill" data-target="cal-month-${key}" type="button">${short} ${y}</button>`;
+      });
+      html += '</div>';
 
       monthMap.forEach((days, key) => {
         const [y, m] = key.split('-').map(Number);
         const monthName = MONTHS[m-1] + ' ' + y;
 
-        // Griglia: primo giorno del mese (0=dom..6=sab) → offset per iniziare da lunedì
         const firstOfMonth = new Date(y, m-1, 1);
-        const dowFirst = firstOfMonth.getDay(); // 0=dom
-        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1; // celle vuote prima del 1°
+        const dowFirst = firstOfMonth.getDay();
+        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1;
 
-        // Mappa iso → dato giorno
         const dayByISO = new Map();
         days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
 
-        // Numero di giorni nel mese
         const daysInMonth = new Date(y, m, 0).getDate();
 
-        html += `<div class="cal-month">`;
-        html += `<div class="cal-month-title">${monthName}</div>`;
+        // Contatore ore mensili
+        let workDays = 0;
+        for(let day = 1; day <= daysInMonth; day++){
+          const iso = isoDate(new Date(y, m-1, day));
+          const d = dayByISO.get(iso);
+          if(d && !d.isRest && !d.isHoliday) workDays++;
+        }
+        const totalMins = workDays * (state.durationMinutes || 0);
+        const totH = Math.floor(totalMins / 60);
+        const totM = totalMins % 60;
+        const oreLabel = totalMins > 0 ? `${totH}h${totM ? ' ' + totM + 'm' : ''}` : '—';
+
+        html += `<div class="cal-month" id="cal-month-${key}">`;
+        html += `<div class="cal-month-title">${monthName}<span style="float:right;font-size:11px;font-weight:700;opacity:0.65;">${workDays} giorni · ${oreLabel}</span></div>`;
         html += `<div class="cal-grid">`;
 
-        // Intestazione giorni settimana
         DOW_LABELS.forEach(dl => { html += `<div class="cal-dow">${dl}</div>`; });
 
-        // Celle vuote iniziali
         for(let i = 0; i < offsetMon; i++){
           html += `<div class="cal-cell cal-empty"></div>`;
         }
 
-        // Celle dei giorni
         for(let day = 1; day <= daysInMonth; day++){
           const dateObj = new Date(y, m-1, day);
           const iso = isoDate(dateObj);
           const d = dayByISO.get(iso);
           const isToday = iso === todayISO;
+          const dowIdx = (dateObj.getDay() + 6) % 7;
+          const isWeekend = weekendDowIdx.has(dowIdx);
 
           let classes = 'cal-cell';
           if(isToday) classes += ' cal-today';
@@ -1752,16 +1850,17 @@ function buildHolidayMapForYear(year){
           if(d){
             if(d.isRest){ classes += ' cal-rest'; inner += `<div class="cal-libero">LIBERO</div>`; }
             else if(d.isHoliday){ classes += ' cal-holiday'; inner += `<div class="cal-time time-red">${d.start}</div><div class="cal-time-end">${d.end}</div><div class="cal-hname">${escapeHtml(d.holidayName)}</div>`; }
-            else { inner += `<div class="cal-time">${d.start}</div><div class="cal-time-end">${d.end}</div>`; }
+            else {
+              if(isWeekend) classes += ' cal-weekend';
+              inner += `<div class="cal-time">${d.start}</div><div class="cal-time-end">${d.end}</div>`;
+            }
           } else {
-            // Giorno fuori dal range della matrice (non generato)
             classes += ' cal-empty';
           }
 
           html += `<div class="${classes}">${inner}</div>`;
         }
 
-        // Celle vuote finali per completare l'ultima riga
         const totalCells = offsetMon + daysInMonth;
         const remainder = totalCells % 7;
         if(remainder !== 0){
@@ -1770,10 +1869,30 @@ function buildHolidayMapForYear(year){
           }
         }
 
-        html += `</div></div>`; // .cal-grid .cal-month
+        html += `</div></div>`;
       });
 
       wrap.innerHTML = html;
+
+      // Wire month filter pills interactivity
+      const pills = wrap.querySelectorAll('.cal-month-pill');
+      pills.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = document.getElementById(btn.getAttribute('data-target'));
+          if(target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          pills.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+      });
+      if(pills.length) pills[0].classList.add('active');
+
+      // Auto-activate pill for current month
+      const todayKey = todayISO.substring(0,7).replace('-', '-');
+      const todayPill = wrap.querySelector(`.cal-month-pill[data-target="cal-month-${todayISO.substring(0,7)}"]`);
+      if(todayPill){
+        pills.forEach(b => b.classList.remove('active'));
+        todayPill.classList.add('active');
+      }
     }
 
     function render(){
@@ -2141,8 +2260,11 @@ function buildHolidayMapForYear(year){
       if(!icon) return;
       const iconMap = { table: 'fa-solid fa-layer-group', cards: 'fa-solid fa-calendar-days', calendar: 'fa-solid fa-table-cells-large' };
       const labelMap = { table: 'Passa a schede', cards: 'Passa a calendario', calendar: 'Passa a tabella' };
+      const activeLabel = { table: 'Tabella', cards: 'Schede', calendar: 'Calendario' };
       icon.className = iconMap[state.viewMode] || 'fa-solid fa-layer-group';
       btn.setAttribute('aria-label', labelMap[state.viewMode] || 'Cambia vista');
+      const vl = document.getElementById('viewLabel');
+      if(vl) vl.textContent = activeLabel[state.viewMode] || 'Vista';
     }
 
     // --------- Export (PNG) ---------
@@ -2177,7 +2299,10 @@ function buildHolidayMapForYear(year){
       } else if(state.viewMode === 'cards'){
         const src = document.getElementById('matrixCardsWrap');
         if(!src) return null;
-        root.appendChild(src.cloneNode(true));
+        const clone = src.cloneNode(true);
+        // Forza apertura di tutti i details per l'export
+        clone.querySelectorAll('details').forEach(d => d.setAttribute('open', ''));
+        root.appendChild(clone);
       } else if(state.viewMode === 'calendar'){
         const src = document.getElementById('matrixCalendarWrap');
         if(!src) return null;
@@ -2387,6 +2512,7 @@ function buildHolidayMapForYear(year){
         document.getElementById('hoursHintRow').style.display = 'none';
 
         updateRefLabels();
+        updateGenerateEnabled();
         render();
         toast('Reset', 'Impostazioni azzerate.');
       });
@@ -2402,6 +2528,40 @@ function buildHolidayMapForYear(year){
       // Export buttons
       document.getElementById('savePngBtn').addEventListener('click', savePng);
       document.getElementById('shareBtn').addEventListener('click', sharePng);
+
+      // Tasto Oggi
+      const todayBtn = document.getElementById('todayBtn');
+      if(todayBtn){
+        todayBtn.addEventListener('click', (e) => {
+          addRipple(todayBtn, e.clientX || (todayBtn.getBoundingClientRect().left+10), e.clientY || (todayBtn.getBoundingClientRect().top+10));
+          playClickSound();
+          if(!state.generated){ toast('Oggi', 'Genera prima la matrice.'); return; }
+          const vm = state.viewMode;
+          let el = null;
+          if(vm === 'table') el = document.querySelector('.matrix-table .cell-today');
+          else if(vm === 'cards') el = document.querySelector('#matrixCardsWrap .day-row-today');
+          else if(vm === 'calendar') el = document.querySelector('#matrixCalendarWrap .cal-today');
+          if(el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          else toast('Oggi', 'Il giorno corrente non è nella matrice.');
+        });
+      }
+
+      // Stampa: mostra solo vista attiva, apri tutti i details
+      window.addEventListener('beforeprint', () => {
+        const vm = state.viewMode;
+        ['matrixTableWrap','matrixCardsWrap','matrixCalendarWrap'].forEach(id => {
+          const el = document.getElementById(id); if(el) el.classList.remove('print-show');
+        });
+        const activeId = {table:'matrixTableWrap', cards:'matrixCardsWrap', calendar:'matrixCalendarWrap'}[vm];
+        if(activeId){ const el = document.getElementById(activeId); if(el) el.classList.add('print-show'); }
+        document.querySelectorAll('#matrixCardsWrap details').forEach(d => d.setAttribute('open',''));
+      });
+      window.addEventListener('afterprint', () => {
+        ['matrixTableWrap','matrixCardsWrap','matrixCalendarWrap'].forEach(id => {
+          const el = document.getElementById(id); if(el) el.classList.remove('print-show');
+        });
+        if(state.generated) render();
+      });
 
       // Improve touch scrolling: keep vertical pan enabled even over the table
       document.addEventListener('touchmove', ()=>{}, {passive:true});
