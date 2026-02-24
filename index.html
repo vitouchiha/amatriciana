@@ -346,6 +346,102 @@
     /* Vista a schede */
     .cards-wrap{display:none; margin-top: 10px;}
     .cards-wrap.is-visible{display:block;}
+
+    /* Vista calendario */
+    .calendar-wrap{display:none; margin-top: 10px;}
+    .calendar-wrap.is-visible{display:block;}
+    .cal-month{
+      border: 1px solid var(--stroke);
+      background: var(--card);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      margin-bottom: 14px;
+    }
+    .cal-month-title{
+      font-weight: 900;
+      font-size: 14px;
+      letter-spacing: -0.2px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--stroke);
+      background: linear-gradient(90deg, rgba(92,155,255,0.12), rgba(123,97,255,0.08));
+    }
+    html[data-theme="dark"] .cal-month-title{
+      background: linear-gradient(90deg, rgba(96,165,250,0.18), rgba(139,92,246,0.14));
+    }
+    .cal-grid{
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      border-top: 1px solid var(--stroke);
+    }
+    .cal-dow{
+      text-align: center;
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--muted);
+      padding: 8px 4px;
+      border-right: 1px solid var(--stroke);
+      border-bottom: 1px solid var(--stroke);
+      background: rgba(255,255,255,0.18);
+      letter-spacing: 0.4px;
+    }
+    html[data-theme="dark"] .cal-dow{background: rgba(0,0,0,0.14);}
+    .cal-dow:last-child{border-right: 0;}
+    .cal-cell{
+      min-height: 72px;
+      padding: 6px 5px;
+      border-right: 1px solid var(--stroke);
+      border-bottom: 1px solid var(--stroke);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      position: relative;
+    }
+    .cal-cell:nth-child(7n){border-right: 0;}
+    .cal-cell.cal-empty{background: rgba(0,0,0,0.015);}
+    html[data-theme="dark"] .cal-cell.cal-empty{background: rgba(0,0,0,0.10);}
+    .cal-cell.cal-rest{
+      background: rgba(239,68,68,0.04);
+    }
+    html[data-theme="dark"] .cal-cell.cal-rest{background: rgba(239,68,68,0.07);}
+    .cal-cell.cal-holiday{
+      background: rgba(239,68,68,0.07);
+    }
+    .cal-day-num{
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--muted);
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+    .cal-cell.cal-today .cal-day-num{
+      color: var(--accent);
+    }
+    .cal-time{
+      font-size: 12px;
+      font-weight: 900;
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .cal-time-end{
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .cal-libero{
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--danger);
+      letter-spacing: 0.2px;
+    }
+    .cal-hname{
+      font-size: 10px;
+      font-weight: 900;
+      color: var(--danger);
+      line-height: 1.2;
+      word-break: break-word;
+    }
+    .cal-time.time-red{ color: var(--danger); }
     .week-card{
       border: 1px solid var(--stroke);
       background: rgba(255,255,255,0.55);
@@ -1046,6 +1142,7 @@
           <div class="preview-wrap" id="previewWrap">
             <div class="matrix-container" id="matrixTableWrap" aria-label="Matrice orari"></div>
             <div class="cards-wrap" id="matrixCardsWrap" aria-label="Matrice (schede)" style="display:none;"></div>
+            <div class="calendar-wrap" id="matrixCalendarWrap" aria-label="Matrice (calendario)" style="display:none;"></div>
           </div>
 
           <div id="emptyPreview" class="note" style="margin-top:2px; display:none;">
@@ -1559,6 +1656,93 @@ function buildHolidayMapForYear(year){
       wrap.innerHTML = html;
     }
 
+    // --------- Render calendario ---------
+    function renderCalendar(weeks){
+      const wrap = document.getElementById('matrixCalendarWrap');
+      if(!wrap) return;
+
+      const todayISO = isoDate(new Date());
+
+      // Raggruppa i giorni per mese
+      const monthMap = new Map(); // key: 'YYYY-MM', value: [{dateISO, dayName, isRest, start, end, isHoliday, holidayName}]
+      weeks.forEach(w => {
+        w.days.forEach(d => {
+          const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
+          if(!monthMap.has(key)) monthMap.set(key, []);
+          monthMap.get(key).push(d);
+        });
+      });
+
+      const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+      let html = '';
+
+      monthMap.forEach((days, key) => {
+        const [y, m] = key.split('-').map(Number);
+        const monthName = MONTHS[m-1] + ' ' + y;
+
+        // Griglia: primo giorno del mese (0=dom..6=sab) → offset per iniziare da lunedì
+        const firstOfMonth = new Date(y, m-1, 1);
+        const dowFirst = firstOfMonth.getDay(); // 0=dom
+        const offsetMon = (dowFirst === 0) ? 6 : dowFirst - 1; // celle vuote prima del 1°
+
+        // Mappa iso → dato giorno
+        const dayByISO = new Map();
+        days.forEach(d => dayByISO.set(isoDate(d.dateObj), d));
+
+        // Numero di giorni nel mese
+        const daysInMonth = new Date(y, m, 0).getDate();
+
+        html += `<div class="cal-month">`;
+        html += `<div class="cal-month-title">${monthName}</div>`;
+        html += `<div class="cal-grid">`;
+
+        // Intestazione giorni settimana
+        DOW_LABELS.forEach(dl => { html += `<div class="cal-dow">${dl}</div>`; });
+
+        // Celle vuote iniziali
+        for(let i = 0; i < offsetMon; i++){
+          html += `<div class="cal-cell cal-empty"></div>`;
+        }
+
+        // Celle dei giorni
+        for(let day = 1; day <= daysInMonth; day++){
+          const dateObj = new Date(y, m-1, day);
+          const iso = isoDate(dateObj);
+          const d = dayByISO.get(iso);
+          const isToday = iso === todayISO;
+
+          let classes = 'cal-cell';
+          if(isToday) classes += ' cal-today';
+
+          let inner = `<div class="cal-day-num">${day}</div>`;
+
+          if(d){
+            if(d.isRest){ classes += ' cal-rest'; inner += `<div class="cal-libero">LIBERO</div>`; }
+            else if(d.isHoliday){ classes += ' cal-holiday'; inner += `<div class="cal-time time-red">${d.start}</div><div class="cal-time-end">${d.end}</div><div class="cal-hname">${escapeHtml(d.holidayName)}</div>`; }
+            else { inner += `<div class="cal-time">${d.start}</div><div class="cal-time-end">${d.end}</div>`; }
+          } else {
+            // Giorno fuori dal range della matrice (non generato)
+            classes += ' cal-empty';
+          }
+
+          html += `<div class="${classes}">${inner}</div>`;
+        }
+
+        // Celle vuote finali per completare l'ultima riga
+        const totalCells = offsetMon + daysInMonth;
+        const remainder = totalCells % 7;
+        if(remainder !== 0){
+          for(let i = 0; i < 7 - remainder; i++){
+            html += `<div class="cal-cell cal-empty"></div>`;
+          }
+        }
+
+        html += `</div></div>`; // .cal-grid .cal-month
+      });
+
+      wrap.innerHTML = html;
+    }
+
     function render(){
       const previewWrap = document.getElementById('previewWrap');
       const empty = document.getElementById('emptyPreview');
@@ -1574,14 +1758,18 @@ function buildHolidayMapForYear(year){
       const weeks = buildMatrixData();
       // Costruisci sempre la tabella (serve anche per export PNG)
       renderTable(weeks);
-      // Vista a schede (facoltativa)
+      // Vista a schede
       renderCards(weeks);
+      // Vista calendario
+      renderCalendar(weeks);
 
       const tableWrap = document.getElementById('matrixTableWrap');
       const cardsWrap = document.getElementById('matrixCardsWrap');
-      const isCards = (state.viewMode === 'cards');
-      if(tableWrap) tableWrap.style.display = isCards ? 'none' : 'block';
-      if(cardsWrap) cardsWrap.style.display = isCards ? 'block' : 'none';
+      const calWrap = document.getElementById('matrixCalendarWrap');
+      const vm = state.viewMode;
+      if(tableWrap) tableWrap.style.display = (vm === 'table') ? 'block' : 'none';
+      if(cardsWrap) cardsWrap.style.display = (vm === 'cards') ? 'block' : 'none';
+      if(calWrap)   calWrap.style.display   = (vm === 'calendar') ? 'block' : 'none';
 
       previewWrap.classList.add('is-visible');
       empty.style.display = 'none';
@@ -1874,7 +2062,8 @@ function buildHolidayMapForYear(year){
       // restore saved mode
       const saved = safeStorageGet('viewMode');
       // default to saved preference
-      state.viewMode = (saved === 'cards') ? 'cards' : 'table';
+      const validModes = ['table','cards','calendar'];
+      state.viewMode = validModes.includes(saved) ? saved : 'table';
 
       // If small screen (mobile) we force cards view. Listen for changes to viewport size
       try{
@@ -1884,7 +2073,7 @@ function buildHolidayMapForYear(year){
             state.viewMode = 'cards';
           } else {
             const restored = safeStorageGet('viewMode');
-            state.viewMode = (restored === 'cards') ? 'cards' : 'table';
+            state.viewMode = validModes.includes(restored) ? restored : 'table';
           }
           updateViewToggleIcon();
           if(state.generated) render();
@@ -1901,8 +2090,10 @@ function buildHolidayMapForYear(year){
       btn.addEventListener('click', (e)=>{
         addRipple(btn, e.clientX || (btn.getBoundingClientRect().left+10), e.clientY || (btn.getBoundingClientRect().top+10));
         playClickSound();
-        // toggle user action - persist preference
-        state.viewMode = (state.viewMode === 'table') ? 'cards' : 'table';
+        // Ciclo: table → cards → calendar → table
+        const cycle = ['table','cards','calendar'];
+        const idx = cycle.indexOf(state.viewMode);
+        state.viewMode = cycle[(idx + 1) % cycle.length];
         safeStorageSet('viewMode', state.viewMode);
         updateViewToggleIcon();
         if(state.generated) render();
@@ -1915,10 +2106,10 @@ function buildHolidayMapForYear(year){
       if(!btn) return;
       const icon = btn.querySelector('i');
       if(!icon) return;
-      icon.className = (state.viewMode === 'cards')
-        ? 'fa-solid fa-table-cells-large'
-        : 'fa-solid fa-layer-group';
-      btn.setAttribute('aria-label', state.viewMode === 'cards' ? 'Passa a tabella' : 'Passa a schede');
+      const iconMap = { table: 'fa-solid fa-layer-group', cards: 'fa-solid fa-calendar-days', calendar: 'fa-solid fa-table-cells-large' };
+      const labelMap = { table: 'Passa a schede', cards: 'Passa a calendario', calendar: 'Passa a tabella' };
+      icon.className = iconMap[state.viewMode] || 'fa-solid fa-layer-group';
+      btn.setAttribute('aria-label', labelMap[state.viewMode] || 'Cambia vista');
     }
 
     // --------- Export (PNG) ---------
