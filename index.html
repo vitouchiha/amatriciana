@@ -973,7 +973,7 @@
     }
 
   
-    #refHintRow, #hoursHintRow{display:none !important;}
+    #refHintRow{ display:none !important; }
 
     .spacer-8{ height:8px; }
 
@@ -1339,15 +1339,13 @@
             <div class="ctrl-item">
               <div id="step-hours-input">
                 <span class="control-label">Monte ore</span>
-                <div class="segmented" id="hoursSegment" role="group" aria-label="Ore giornaliere">
-                  <button type="button" data-hours="4h" aria-pressed="false">4h</button>
-                  <button type="button" data-hours="6h" aria-pressed="false">6h</button>
-                  <button type="button" data-hours="6h40" aria-pressed="false">6h 40m</button>
-                  <button type="button" data-hours="7h55" aria-pressed="false">7h 55m</button>
-                </div>
-                <div class="hint-row" id="hoursHintRow" style="display:none;">
-                  <span class="hint-pill"><i class="fa-solid fa-clock"></i> <span id="hoursHint"></span></span>
-                </div>
+                <select class="select-like" id="hoursSelect" style="min-width:170px;">
+                  <option value="">-- Seleziona --</option>
+                  <option value="20h">20h settimanali</option>
+                  <option value="30h">30h settimanali</option>
+                  <option value="33h">33h settimanali</option>
+                  <option value="40h">40h settimanali</option>
+                </select>
               </div>
               <div id="step-hours-sum" class="step-sum">
                 <i class="fa-solid fa-clock step-sum-icon"></i>
@@ -1529,12 +1527,13 @@
         </div>
         <div class="modal-field">
           <label>Monte ore</label>
-          <div class="segmented" id="cHoursSegment" role="group">
-            <button type="button" data-hours="4h" aria-pressed="false">4h</button>
-            <button type="button" data-hours="6h" aria-pressed="false">6h</button>
-            <button type="button" data-hours="6h40" aria-pressed="false">6h 40m</button>
-            <button type="button" data-hours="7h55" aria-pressed="false">7h 55m</button>
-          </div>
+          <select class="modal-select" id="cHoursSelect">
+            <option value="">-- Seleziona --</option>
+            <option value="20h">20h settimanali</option>
+            <option value="30h">30h settimanali</option>
+            <option value="33h">33h settimanali</option>
+            <option value="40h">40h settimanali</option>
+          </select>
         </div>
         <div class="modal-field">
           <label>Anno</label>
@@ -1772,16 +1771,16 @@
     }
 
 
-    // Durate (minuti) — 6.4h => 6h40m, 7,55h => 7h55m
+    // Durate (minuti) — ore settimanali / 5 giorni lavorativi
     const DURATIONS = {
-      '4h': 240,
-      '6h': 360,
-      '6h40': 400,
-      '7h55': 475,
+      '20h': 240,
+      '30h': 360,
+      '33h': 396,
+      '40h': 480,
     };
 
     function prettyDuration(key){
-      const map = { '4h':'4h', '6h':'6h', '6h40':'6h 40m', '7h55':'7h 55m' };
+      const map = { '20h':'20h settimanali', '30h':'30h settimanali', '33h':'33h settimanali', '40h':'40h settimanali' };
       return map[key] || key || '';
     }
 
@@ -2734,9 +2733,8 @@ function buildHolidayMapForYear(year){
       document.querySelectorAll('#cRoleSegment button').forEach(b => {
         b.setAttribute('aria-pressed', b.getAttribute('data-role') === pendingColleague.role ? 'true' : 'false');
       });
-      document.querySelectorAll('#cHoursSegment button').forEach(b => {
-        b.setAttribute('aria-pressed', b.getAttribute('data-hours') === pendingColleague.durationKey ? 'true' : 'false');
-      });
+      const cHours = document.getElementById('cHoursSelect');
+      if(cHours) cHours.value = pendingColleague.durationKey || '';
 
       // Anno
       const ySel = document.getElementById('cYearSelect');
@@ -2787,14 +2785,11 @@ function buildHolidayMapForYear(year){
       });
 
       // Ore
-      document.querySelectorAll('#cHoursSegment button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const k = btn.getAttribute('data-hours');
-          pendingColleague.durationKey = k;
-          pendingColleague.durationMinutes = DURATIONS[k];
-          document.querySelectorAll('#cHoursSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
-          validatePendingColleague();
-        });
+      document.getElementById('cHoursSelect').addEventListener('change', e => {
+        const k = e.target.value;
+        pendingColleague.durationKey = k || null;
+        pendingColleague.durationMinutes = k ? DURATIONS[k] : null;
+        validatePendingColleague();
       });
 
       // Anno
@@ -2972,6 +2967,9 @@ function buildHolidayMapForYear(year){
         state.startMonth      = cfg.startMonth      ?? state.startMonth;
         state.generated       = !!cfg.generated;
         setActiveRole(state.role);
+        // Sincronizza UI select ore
+        const _hs = document.getElementById('hoursSelect');
+        if(_hs && state.durationKey) _hs.value = state.durationKey;
         // Aggiorna localStorage per coerenza
         safeStorageSet('operatorRole',        state.role);
         if(state.durationKey)            safeStorageSet('durationKey', state.durationKey);
@@ -3103,37 +3101,25 @@ function buildHolidayMapForYear(year){
     }
 
     function initHours(){
-      const seg = document.getElementById('hoursSegment');
+      const sel = document.getElementById('hoursSelect');
       const saved = localStorage.getItem('durationKey');
-      if (saved && DURATIONS[saved]) {
+      if(saved && DURATIONS[saved]){
         state.durationKey = saved;
         state.durationMinutes = DURATIONS[saved];
+        sel.value = saved;
       }
 
-      seg.querySelectorAll('button').forEach(btn => {
-        const key = btn.getAttribute('data-hours');
-        const pressed = state.durationKey === key;
-        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-
-        btn.addEventListener('click', (e) => {
-          addRipple(btn, e.clientX || (btn.getBoundingClientRect().left+10), e.clientY || (btn.getBoundingClientRect().top+10));
-          playClickSound();
-          state.durationKey = key;
-          state.durationMinutes = DURATIONS[key];
-          localStorage.setItem('durationKey', key);
-
-          seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.getAttribute('data-hours')===key ? 'true' : 'false'));
-
-          document.getElementById('hoursHintRow').style.display = 'flex';
-          document.getElementById('hoursHint').textContent = `Ore giornaliere: ${prettyDuration(key)}`;
-          updateRefButtonsEnabled();
-          updateGenerateEnabled();
-
-          // Collassa step ore
-          stepDone('hours', prettyDuration(key));
-
-          if(state.generated) render();
-        });
+      sel.addEventListener('change', (e) => {
+        playClickSound();
+        const key = e.target.value;
+        if(!key){ state.durationKey = null; state.durationMinutes = null; updateRefButtonsEnabled(); updateGenerateEnabled(); return; }
+        state.durationKey = key;
+        state.durationMinutes = DURATIONS[key];
+        localStorage.setItem('durationKey', key);
+        updateRefButtonsEnabled();
+        updateGenerateEnabled();
+        stepDone('hours', prettyDuration(key));
+        if(state.generated) render();
       });
 
       // Edit button ore
@@ -3141,8 +3127,7 @@ function buildHolidayMapForYear(year){
       if(editBtn) editBtn.addEventListener('click', ()=>{ stepOpen('hours'); });
 
       if(state.durationMinutes){
-        document.getElementById('hoursHintRow').style.display = 'flex';
-        document.getElementById('hoursHint').textContent = `Ore giornaliere: ${prettyDuration(state.durationKey)}`;
+        stepDone('hours', prettyDuration(state.durationKey));
       }
       updateRefButtonsEnabled();
       updateGenerateEnabled();
@@ -3495,8 +3480,8 @@ function buildHolidayMapForYear(year){
         document.querySelectorAll('#roleSegment button').forEach(b => b.setAttribute('aria-pressed','false'));
 
         // UI reset ore
-        document.querySelectorAll('#hoursSegment button').forEach(b => b.setAttribute('aria-pressed','false'));
-        document.getElementById('hoursHintRow').style.display = 'none';
+        const hoursSelect = document.getElementById('hoursSelect');
+        if(hoursSelect) hoursSelect.value = '';
 
         updateRefLabels();
         updateGenerateEnabled();
