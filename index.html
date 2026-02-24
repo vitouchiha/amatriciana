@@ -1970,20 +1970,21 @@
     }
 
     // --------- Rientri in sede ---------
-    // Lunedì della prima settimana di rientro nota per ciascun team; ciclo ogni 5 settimane (35 giorni)
+    // Lunedì della prima settimana di rientro nota per ciascun team; ciclo ogni 6 settimane (42 giorni)
     const TEAM_RIENTRO_ANCHORS = {
       6: '2026-02-23',
       7: '2026-02-16',
       8: '2026-02-23',
+      9: '2026-03-02',
     };
-    // Team 1-5 e 9: anchor da definire
+    // Team 1-5: anchor da definire
 
     function isRientroWeek(weekMondayDate, team){
       const anchorISO = TEAM_RIENTRO_ANCHORS[team];
       if(!anchorISO || !team) return false;
       const anchor = parseISODate(anchorISO);
       const diffDays = Math.round((weekMondayDate.getTime() - anchor.getTime()) / 86400000);
-      return (((diffDays % 35) + 35) % 35) === 0;
+      return (((diffDays % 42) + 42) % 42) === 0;
     }
 
 
