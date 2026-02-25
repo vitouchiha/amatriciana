@@ -1522,7 +1522,10 @@
       <!-- Team card -->
       <section class="card" id="teamCard" style="display:none;">
         <div class="card-head">
-          <div class="card-title">Team</div>
+          <div>
+            <div class="card-title">Colleghi del Team</div>
+            <div class="card-sub">Operatori configurati con matrice orari.</div>
+          </div>
           <button class="icon-btn" id="addColleagueBtn" type="button" aria-label="Aggiungi collega" title="Aggiungi collega" style="display:none;">
             <i class="fa-solid fa-user-plus"></i>
           </button>
@@ -1567,9 +1570,30 @@
         <div class="card-body">
           <div id="swapPrereq" class="note">
             <i class="fa-solid fa-triangle-exclamation" style="margin-right:6px;"></i>
-            Genera prima la tua matrice e aggiungi almeno un collega con configurazione completa.
+            Aggiungi almeno un collega con configurazione completa.
           </div>
           <div id="swapForm" style="display:none;">
+            <!-- Sezione manuale: visibile solo se non è stata generata la propria matrice -->
+            <div id="swapManualSection" style="display:none; margin-bottom:10px; padding:10px 12px; border-radius:10px; background:var(--ctrl-bg);">
+              <div style="font-size:11px; font-weight:700; opacity:0.55; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Il tuo turno (senza matrice)</div>
+              <div class="controls-grid" style="gap:8px;">
+                <div class="ctrl-item">
+                  <span class="control-label">Sei</span>
+                  <div class="segmented" id="swapRoleSegment" role="group">
+                    <button type="button" data-role="dipendente" aria-pressed="false">Dipendente</button>
+                    <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
+                  </div>
+                </div>
+                <div class="ctrl-item">
+                  <span class="control-label">Inizio turno</span>
+                  <input type="time" id="swapManualStart" class="search-date-input" style="width:100%;" />
+                </div>
+                <div class="ctrl-item">
+                  <span class="control-label">Fine turno</span>
+                  <input type="time" id="swapManualEnd" class="search-date-input" style="width:100%;" />
+                </div>
+              </div>
+            </div>
             <div class="controls-grid" style="gap:8px;">
               <div class="ctrl-item">
                 <span class="control-label">Collega</span>
@@ -1648,6 +1672,10 @@
             <button id="toggleCalBtn" type="button" title="Vista calendario"
               style="padding:5px 10px;border:0;background:var(--accent);color:#fff;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s;">
               <i class="fa-solid fa-calendar-days"></i>
+            </button>
+            <button id="toggleCardsBtn" type="button" title="Vista schede settimanali"
+              style="padding:5px 10px;border:0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s;">
+              <i class="fa-solid fa-layer-group"></i>
             </button>
             <button id="toggleTblBtn" type="button" title="Vista tabella"
               style="padding:5px 10px;border:0;background:#fff;color:#64748b;cursor:pointer;font-size:12px;font-weight:700;transition:background .15s;">
@@ -1729,6 +1757,12 @@
             <button type="button" data-role="dipendente" aria-pressed="false">Dipendente</button>
             <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
           </div>
+        </div>
+        <div class="modal-field">
+          <label>Team</label>
+          <select class="modal-select" id="cTeamSelect">
+            <option value="">-- Seleziona --</option>
+          </select>
         </div>
         <div class="modal-field">
           <label>Monte ore</label>
@@ -2894,48 +2928,88 @@ function buildHolidayMapForYear(year){
       }
       if(empty) empty.style.display = 'none';
 
+      // Raggruppa per ruolo + team
+      const groups = new Map();
       state.colleghi.forEach(c => {
-        const initial = (c.name || '?').charAt(0).toUpperCase();
-        const metaParts = [
-          c.role === 'tutor' ? 'Tutor' : 'Dipendente',
-          c.durationKey || '',
-          c.startWeekISO ? `dal ${c.startWeekISO}` : ''
-        ].filter(Boolean);
+        const roleKey = c.role || 'dipendente';
+        const key = c.team ? `${roleKey}_${c.team}` : '__nessun_team';
+        if(!groups.has(key)) groups.set(key, { role: roleKey, team: c.team || null, members: [] });
+        groups.get(key).members.push(c);
+      });
 
-        const row = document.createElement('div');
-        row.className = 'colleague-row';
-        row.innerHTML = `
-          <div class="colleague-avatar">${initial}</div>
-          <div class="colleague-info" style="cursor:pointer;flex:1;min-width:0;">
-            <div class="colleague-name">${escapeHtml(c.name)}</div>
-            <div class="colleague-meta">${metaParts.join(' · ')}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:4px;">
-            <button class="btn-icon-sm view" title="Vedi matrice" data-id="${c.id}"><i class="fa-solid fa-eye"></i></button>
-            <div class="colleague-actions" ${isAdmin ? '' : 'style="display:none"'}>
-              <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
-              <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+      // Ordine: dipendenti team 1→6, tutor team 7→9, senza team
+      const sortedKeys = [...groups.keys()].sort((a, b) => {
+        if(a === '__nessun_team') return 1;
+        if(b === '__nessun_team') return -1;
+        const gA = groups.get(a), gB = groups.get(b);
+        const roleOrder = { dipendente: 0, tutor: 1 };
+        const ro = (roleOrder[gA.role]||0) - (roleOrder[gB.role]||0);
+        if(ro !== 0) return ro;
+        return (gA.team||99) - (gB.team||99);
+      });
+
+      sortedKeys.forEach(key => {
+        const { role, team, members } = groups.get(key);
+        const roleLabel = role === 'tutor' ? 'Tutor' : 'Dipendente';
+        const groupLabel = key === '__nessun_team' ? 'Senza team' : `Team ${team} — ${roleLabel}`;
+
+        const details = document.createElement('details');
+        details.style.cssText = 'border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:6px;';
+        details.open = true;
+
+        const summary = document.createElement('summary');
+        summary.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:9px 12px; font-size:12px; font-weight:900; cursor:pointer; user-select:none; background:var(--ctrl-bg); list-style:none; gap:8px;';
+        summary.innerHTML = `<span>${escapeHtml(groupLabel)}</span><span style="background:#e2e8f0;color:#64748b;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;">${members.length}</span>`;
+        details.appendChild(summary);
+
+        const body = document.createElement('div');
+        members.forEach(c => {
+          const initial = (c.name || '?').charAt(0).toUpperCase();
+          const metaParts = [
+            c.role === 'tutor' ? 'Tutor' : 'Dipendente',
+            c.team ? `Team ${c.team}` : '',
+            c.durationKey || '',
+            c.startWeekISO ? `dal ${c.startWeekISO}` : ''
+          ].filter(Boolean);
+
+          const row = document.createElement('div');
+          row.className = 'colleague-row';
+          row.innerHTML = `
+            <div class="colleague-avatar">${initial}</div>
+            <div class="colleague-info" style="cursor:pointer;flex:1;min-width:0;">
+              <div class="colleague-name">${escapeHtml(c.name)}</div>
+              <div class="colleague-meta">${metaParts.join(' · ')}</div>
             </div>
-          </div>`;
+            <div style="display:flex;align-items:center;gap:4px;">
+              <button class="btn-icon-sm view" title="Vedi matrice" data-id="${c.id}"><i class="fa-solid fa-eye"></i></button>
+              <div class="colleague-actions" ${isAdmin ? '' : 'style="display:none"'}>
+                <button class="btn-icon-sm edit" title="Modifica" data-id="${c.id}"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn-icon-sm del" title="Elimina" data-id="${c.id}"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </div>`;
 
-        row.querySelector('.view').addEventListener('click', () => openColleagueMatrix(c));
-        row.querySelector('.colleague-info').addEventListener('click', () => openColleagueMatrix(c));
-        if(isAdmin){
-          row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
-          row.querySelector('.del').addEventListener('click', () => {
-            state.colleghi = state.colleghi.filter(x => x.id !== c.id);
-            saveColleghi();
-            renderTeamList();
-          });
-        }
-        list.appendChild(row);
+          row.querySelector('.view').addEventListener('click', () => openColleagueMatrix(c));
+          row.querySelector('.colleague-info').addEventListener('click', () => openColleagueMatrix(c));
+          if(isAdmin){
+            row.querySelector('.edit').addEventListener('click', () => openColleagueModal(c.id));
+            row.querySelector('.del').addEventListener('click', () => {
+              state.colleghi = state.colleghi.filter(x => x.id !== c.id);
+              saveColleghi();
+              renderTeamList();
+            });
+          }
+          body.appendChild(row);
+        });
+
+        details.appendChild(body);
+        list.appendChild(details);
       });
       refreshSwapReadiness();
     }
 
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
-    let _colleagueViewMode = 'calendar'; // 'calendar' | 'table'
+    let _colleagueViewMode = 'calendar'; // 'calendar' | 'cards' | 'table'
 
     function renderColleagueBody(){
       const body = document.getElementById('colleagueMatrixBody');
@@ -2943,6 +3017,8 @@ function buildHolidayMapForYear(year){
       body.innerHTML = '';
       if(_colleagueViewMode === 'table'){
         body.appendChild(buildTableViewForCfg(_viewedColleague));
+      } else if(_colleagueViewMode === 'cards'){
+        body.appendChild(buildCardsViewForCfg(_viewedColleague));
       } else {
         const node = buildCalendarExportNodeForCfg(_viewedColleague);
         // Fit within modal: inherit width, remove fixed 700px
@@ -2950,6 +3026,47 @@ function buildHolidayMapForYear(year){
         node.style.padding = '0';
         body.appendChild(node);
       }
+    }
+
+    function buildCardsViewForCfg(cfg){
+      const weeks = buildMatrixDataForConfig(cfg);
+      const todayISO = isoDate(new Date());
+      const wrap = document.createElement('div');
+      wrap.className = 'cards-wrap';
+      wrap.style.display = 'block';
+      weeks.forEach((w, idx) => {
+        const isWeekToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+        const det = document.createElement('details');
+        det.className = 'week-card';
+        if(idx === 0 || isWeekToday) det.open = true;
+        const label = weekLabel(w.weekStart);
+        const summ = document.createElement('summary');
+        summ.innerHTML = `<div class="wc-left"><div class="wc-title">${label}</div></div><div class="chev"><i class="fa-solid fa-chevron-down"></i></div>`;
+        det.appendChild(summ);
+        const body = document.createElement('div');
+        body.className = 'wc-body';
+        w.days.forEach(d => {
+          const dateTxt = fmtDayMonth(d.dateObj);
+          const isToday = isoDate(d.dateObj) === todayISO;
+          let rightHTML = '';
+          if(d.holidayName){
+            rightHTML = `<div class="day-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div><div class="holiday-name">${escapeHtml(d.holidayName)}</div>`;
+          } else if(d.isRest){
+            rightHTML = `<div class="pill rest">LIBERO</div>`;
+          } else {
+            rightHTML = `<div class="day-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+          }
+          if(d.isRientro) rightHTML += `<div class="cal-rientro">&#x1f3e2; Rientro</div>`;
+          const row = document.createElement('div');
+          row.className = `day-row${isToday ? ' day-row-today' : ''}`;
+          if(isToday) row.style.cssText = 'outline:2px solid var(--accent);outline-offset:-2px;border-radius:14px;';
+          row.innerHTML = `<div class="day-left"><div class="day-name">${d.dayName}</div><div class="day-date">${dateTxt}</div></div><div class="day-right">${rightHTML}</div>`;
+          body.appendChild(row);
+        });
+        det.appendChild(body);
+        wrap.appendChild(det);
+      });
+      return wrap;
     }
 
     function openColleagueMatrix(c){
@@ -3041,21 +3158,21 @@ function buildHolidayMapForYear(year){
     function buildCalendarExportNodeForCfg(cfg){
       // Exact pixel-match to the on-screen .cal-* CSS classes
       const S = {
-        cell:    'min-height:72px; padding:6px 5px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:3px; background:#fff;',
-        cellEnd: 'min-height:72px; padding:6px 5px; border-right:0;              border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:3px; background:#fff;',
+        cell:    'min-height:80px; padding:5px 4px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:#fff;',
+        cellEnd: 'min-height:80px; padding:5px 4px; border-right:0;              border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:#fff;',
         empty:   'background:rgba(0,0,0,0.015);',
         rest:    'background:rgba(239,68,68,0.04);',
         holiday: 'background:rgba(239,68,68,0.07);',
-        dayNum:  'font-size:12px; font-weight:900; color:#94a3b8; line-height:1; margin-bottom:2px;',
-        dayToday:'font-size:12px; font-weight:900; color:#5c9bff;  line-height:1; margin-bottom:2px;',
-        time:    'font-size:12px; font-weight:900; color:#1e293b; line-height:1.15;',
-        timeEnd: 'font-size:11px; font-weight:700; color:#64748b;',
-        timeRed: 'font-size:12px; font-weight:900; color:#ef4444; line-height:1.15;',
-        timeEndRed:'font-size:11px; font-weight:700; color:#ef4444;',
-        libero:  'font-size:11px; font-weight:900; color:#ef4444; letter-spacing:0.2px;',
-        hname:   'font-size:10px; font-weight:900; color:#ef4444; line-height:1.2; word-break:break-word;',
-        dow:     'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 4px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
-        dowEnd:  'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 4px; border-right:0;                border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
+        dayNum:  'font-size:13px; font-weight:900; color:#94a3b8; line-height:1; margin-bottom:2px;',
+        dayToday:'font-size:13px; font-weight:900; color:#5c9bff;  line-height:1; margin-bottom:2px;',
+        time:    'font-size:15px; font-weight:900; color:#1e293b; line-height:1.15;',
+        timeEnd: 'font-size:14px; font-weight:700; color:#64748b;',
+        timeRed: 'font-size:15px; font-weight:900; color:#ef4444; line-height:1.15;',
+        timeEndRed:'font-size:14px; font-weight:700; color:#ef4444;',
+        libero:  'font-size:14px; font-weight:900; color:#ef4444; letter-spacing:0.2px;',
+        hname:   'font-size:12px; font-weight:900; color:#ef4444; line-height:1.2; word-break:break-word;',
+        dow:     'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 3px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
+        dowEnd:  'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 3px; border-right:0;                border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
       };
       const weeks    = buildMatrixDataForConfig(cfg);
       const todayISO = isoDate(new Date());
@@ -3191,7 +3308,22 @@ function buildHolidayMapForYear(year){
     function genId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
     // pendingColleague — stato temporaneo della modal di aggiunta/modifica
-    let pendingColleague = { id: null, name: '', role: null, durationKey: null, durationMinutes: null, startMonth: null, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
+    let pendingColleague = { id: null, name: '', role: null, team: null, durationKey: null, durationMinutes: null, startMonth: null, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
+
+    function populateCTeamSelect(role, currentTeam){
+      const sel = document.getElementById('cTeamSelect');
+      if(!sel) return;
+      sel.innerHTML = '<option value="">-- Seleziona --</option>';
+      const teams = role === 'tutor' ? [7,8,9] : [1,2,3,4,5,6];
+      teams.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = String(t);
+        opt.textContent = `Team ${t}`;
+        if(String(t) === String(currentTeam)) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      pendingColleague.team = teams.includes(Number(currentTeam)) ? Number(currentTeam) : null;
+    }
 
     function refreshColleagueModalOptions(){
       const role = pendingColleague.role;
@@ -3254,7 +3386,7 @@ function buildHolidayMapForYear(year){
         };
         document.getElementById('colleagueModalTitle').textContent = 'Modifica collega';
       } else {
-        pendingColleague = { id: null, name: '', role: null, durationKey: null, durationMinutes: null, startMonth: 0, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
+        pendingColleague = { id: null, name: '', role: null, team: null, durationKey: null, durationMinutes: null, startMonth: 0, startWeekYear: new Date().getFullYear(), startWeekISO: null, anchorPatternIndex: null };
         document.getElementById('colleagueModalTitle').textContent = 'Aggiungi collega';
       }
 
@@ -3264,6 +3396,10 @@ function buildHolidayMapForYear(year){
       document.querySelectorAll('#cRoleSegment button').forEach(b => {
         b.setAttribute('aria-pressed', b.getAttribute('data-role') === pendingColleague.role ? 'true' : 'false');
       });
+
+      // Team select
+      populateCTeamSelect(pendingColleague.role, pendingColleague.team);
+
       const cHours = document.getElementById('cHoursSelect');
       if(cHours) cHours.value = pendingColleague.durationKey || '';
 
@@ -3308,11 +3444,19 @@ function buildHolidayMapForYear(year){
       document.querySelectorAll('#cRoleSegment button').forEach(btn => {
         btn.addEventListener('click', () => {
           pendingColleague.role = btn.getAttribute('data-role');
+          pendingColleague.team = null;
           pendingColleague.anchorPatternIndex = null; // reset opzione
           document.querySelectorAll('#cRoleSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+          populateCTeamSelect(pendingColleague.role, null);
           refreshColleagueModalOptions();
           validatePendingColleague();
         });
+      });
+
+      // Team
+      document.getElementById('cTeamSelect').addEventListener('change', e => {
+        pendingColleague.team = e.target.value ? Number(e.target.value) : null;
+        validatePendingColleague();
       });
 
       // Ore
@@ -3358,6 +3502,7 @@ function buildHolidayMapForYear(year){
           id: pendingColleague.id || genId(),
           name: pendingColleague.name.trim(),
           role: pendingColleague.role,
+          team: pendingColleague.team || null,
           durationKey: pendingColleague.durationKey,
           durationMinutes: pendingColleague.durationMinutes,
           startWeekISO: pendingColleague.startWeekISO,
@@ -3612,31 +3757,41 @@ function buildHolidayMapForYear(year){
     }
 
     // Validazione completa di uno scambio
-    function validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName){
+    // manualRoleA e manualDayA vengono usati quando non è stata generata la propria matrice
+    function validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA){
       const errors = [];
-      if(!state.generated || state.anchorPatternIndex === null){
-        errors.push('Genera prima la tua matrice.'); return errors;
+      const useManual = !state.generated || state.anchorPatternIndex === null;
+      if(useManual && !manualDayA){
+        errors.push('Genera la tua matrice oppure inserisci il tuo turno manualmente.'); return errors;
       }
       // Ruolo compatibile
-      if(state.role !== collegaCfg.role){
-        const rA = state.role === 'tutor' ? 'Tutor' : 'Dipendente';
+      const myRole = useManual ? manualRoleA : state.role;
+      if(myRole !== collegaCfg.role){
+        const rA = myRole === 'tutor' ? 'Tutor' : 'Dipendente';
         const rB = collegaCfg.role === 'tutor' ? 'Tutor' : 'Dipendente';
         errors.push(`Ruoli incompatibili: tu sei ${rA}, ${collegaName} è ${rB}. Solo scambi tra pari ruolo.`);
         return errors;
       }
-      const cfgA = buildCfgFromState();
-      const dayA = getScheduleOnDate(cfgA, dateA_iso);
+      const dayA = useManual ? manualDayA : (() => {
+        const cfgA = buildCfgFromState();
+        return getScheduleOnDate(cfgA, dateA_iso);
+      })();
       const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
-      if(!dayA){ errors.push(`Il giorno ${dateA_iso} è fuori dalla tua matrice.`); return errors; }
+      if(!dayA && !useManual){ errors.push(`Il giorno ${dateA_iso} è fuori dalla tua matrice.`); return errors; }
       if(!dayB){ errors.push(`Il giorno ${dateB_iso} è fuori dalla matrice di ${collegaName}.`); return errors; }
 
       // Dopo lo scambio: tu prendi il turno di dayB su dateA, collega prende dayA su dateB
       const newForA = { isRest: dayB.isRest, start: dayB.start, end: dayB.end };
       const newForB = { isRest: dayA.isRest, start: dayA.start, end: dayA.end };
 
-      swapValidate11h(cfgA, dateA_iso, newForA).forEach(e => errors.push(`[Tu – ${dateA_iso}] ${e}`));
+      // A-side: solo controllabile se la matrice è stata generata (serve sapere i giorni vicini)
+      if(!useManual){
+        const cfgA = buildCfgFromState();
+        swapValidate11h(cfgA, dateA_iso, newForA).forEach(e => errors.push(`[Tu – ${dateA_iso}] ${e}`));
+        swapValidate5Consec(cfgA, dateA_iso, !newForA.isRest).forEach(e => errors.push(`[Tu] ${e}`));
+      }
+      // B-side: sempre controllabile
       swapValidate11h(collegaCfg, dateB_iso, newForB).forEach(e => errors.push(`[${collegaName} – ${dateB_iso}] ${e}`));
-      swapValidate5Consec(cfgA, dateA_iso, !newForA.isRest).forEach(e => errors.push(`[Tu] ${e}`));
       swapValidate5Consec(collegaCfg, dateB_iso, !newForB.isRest).forEach(e => errors.push(`[${collegaName}] ${e}`));
       return errors;
     }
@@ -3651,13 +3806,13 @@ function buildHolidayMapForYear(year){
       return day.isRest ? '🔴 Riposo' : `${day.start} – ${day.end}`;
     }
 
-    function renderSwapResult(dateA_iso, dateB_iso, collegaCfg, collegaName){
+    function renderSwapResult(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA){
       const resultEl = document.getElementById('swapResult');
       if(!resultEl) return;
-      const cfgA = buildCfgFromState();
-      const dayA = getScheduleOnDate(cfgA, dateA_iso);
+      const useManual = !state.generated || state.anchorPatternIndex === null;
+      const dayA = useManual ? manualDayA : getScheduleOnDate(buildCfgFromState(), dateA_iso);
       const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
-      const errors = validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName);
+      const errors = validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA);
 
       let html = `<div style="background:var(--ctrl-bg);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:13px;">
         <div style="margin-bottom:8px;font-weight:700;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Riepilogo</div>
@@ -3698,12 +3853,13 @@ function buildHolidayMapForYear(year){
     function refreshSwapReadiness(){
       const prereq = document.getElementById('swapPrereq');
       const form   = document.getElementById('swapForm');
+      const manual = document.getElementById('swapManualSection');
       if(!prereq || !form) return;
-      const ready = state.generated &&
-        state.colleghi.some(c => c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined);
-      prereq.style.display = ready ? 'none' : '';
-      form.style.display   = ready ? '' : 'none';
-      if(ready){
+      const hasColleghi = state.colleghi.some(c => c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined);
+      prereq.style.display = hasColleghi ? 'none' : '';
+      form.style.display   = hasColleghi ? '' : 'none';
+      if(manual) manual.style.display = (hasColleghi && !state.generated) ? '' : 'none';
+      if(hasColleghi){
         const sel = document.getElementById('swapColleagueSelect');
         if(!sel) return;
         sel.innerHTML = '<option value="">— seleziona —</option>';
@@ -3721,6 +3877,12 @@ function buildHolidayMapForYear(year){
 
     function initSwap(){
       refreshSwapReadiness();
+      // Wire swap role segmented buttons
+      document.querySelectorAll('#swapRoleSegment button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#swapRoleSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+        });
+      });
       const verifyBtn = document.getElementById('swapVerifyBtn');
       if(!verifyBtn) return;
       verifyBtn.addEventListener('click', () => {
@@ -3732,7 +3894,20 @@ function buildHolidayMapForYear(year){
         if(!dateB){ toast('Attenzione', 'Inserisci il giorno del collega.'); return; }
         const collega = state.colleghi[Number(sel.value)];
         if(!collega){ toast('Errore', 'Collega non trovato.'); return; }
-        renderSwapResult(dateA, dateB, collega, collega.name);
+
+        // Modalità manuale: raccoglie il turno inserito dall'utente
+        const useManual = !state.generated || state.anchorPatternIndex === null;
+        let manualRoleA = null, manualDayA = null;
+        if(useManual){
+          const rolBtn = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
+          manualRoleA = rolBtn ? rolBtn.getAttribute('data-role') : null;
+          const tStart = document.getElementById('swapManualStart').value;
+          const tEnd   = document.getElementById('swapManualEnd').value;
+          if(!manualRoleA){ toast('Attenzione', 'Seleziona il tuo ruolo.'); return; }
+          if(!tStart || !tEnd){ toast('Attenzione', 'Inserisci l\'orario del tuo turno.'); return; }
+          manualDayA = { isRest: false, start: tStart, end: tEnd };
+        }
+        renderSwapResult(dateA, dateB, collega, collega.name, manualRoleA, manualDayA);
       });
     }
 
@@ -4474,21 +4649,30 @@ function buildHolidayMapForYear(year){
       document.getElementById('closeColleagueMatrixModal').addEventListener('click', ()=> closeModal('colleagueMatrixModal'));
       document.getElementById('saveCollegueMatrixBtn').addEventListener('click', saveColleaguePng);
       document.getElementById('colleagueMatrixModal').addEventListener('click', e=>{ if(e.target.id==='colleagueMatrixModal') closeModal('colleagueMatrixModal'); });
-      // Toggle calendario / tabella
+      // Toggle calendario / schede / tabella
+      const _allToggleBtns = ['toggleCalBtn','toggleCardsBtn','toggleTblBtn'];
+      function _setColleagueToggle(active){
+        _allToggleBtns.forEach(id => {
+          const btn = document.getElementById(id);
+          if(!btn) return;
+          const isActive = id === active;
+          btn.style.setProperty('background', isActive ? 'var(--accent)' : '#fff');
+          btn.style.setProperty('color', isActive ? '#fff' : '#64748b');
+        });
+      }
       document.getElementById('toggleCalBtn').addEventListener('click', ()=>{
         _colleagueViewMode = 'calendar';
-        document.getElementById('toggleCalBtn').style.setProperty('background','var(--accent)');
-        document.getElementById('toggleCalBtn').style.setProperty('color','#fff');
-        document.getElementById('toggleTblBtn').style.setProperty('background','#fff');
-        document.getElementById('toggleTblBtn').style.setProperty('color','#64748b');
+        _setColleagueToggle('toggleCalBtn');
+        renderColleagueBody();
+      });
+      document.getElementById('toggleCardsBtn').addEventListener('click', ()=>{
+        _colleagueViewMode = 'cards';
+        _setColleagueToggle('toggleCardsBtn');
         renderColleagueBody();
       });
       document.getElementById('toggleTblBtn').addEventListener('click', ()=>{
         _colleagueViewMode = 'table';
-        document.getElementById('toggleTblBtn').style.setProperty('background','var(--accent)');
-        document.getElementById('toggleTblBtn').style.setProperty('color','#fff');
-        document.getElementById('toggleCalBtn').style.setProperty('background','#fff');
-        document.getElementById('toggleCalBtn').style.setProperty('color','#64748b');
+        _setColleagueToggle('toggleTblBtn');
         renderColleagueBody();
       });
 
