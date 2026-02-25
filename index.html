@@ -3796,6 +3796,10 @@ function buildHolidayMapForYear(year){
       if(!resultEl) return;
 
       const useOwnMatrix = !!(state.generated && state.anchorPatternIndex !== null);
+      const cfgA = useOwnMatrix ? buildCfgFromState() : null;
+      // isBilateral = scambio su due date diverse (cedo myISO, prendo targetISO)
+      const isBilateral = !!(myISO && myISO !== targetISO);
+
       const candidates = state.colleghi.filter(c =>
         c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined
       );
@@ -3805,10 +3809,32 @@ function buildHolidayMapForYear(year){
         resultEl.style.display = 'block'; return;
       }
 
+      // Controlla 11h gap con prev/next espliciti (non dalla matrice originale)
+      function check11hExplicit(prevDay, newShift, nextDay, label, errors){
+        if(!newShift || newShift.isRest) return;
+        const r1 = swapCheck11h(prevDay, newShift);
+        if(!r1.ok) errors.push(`${label}: ${r1.reason} (rispetto al giorno precedente)`);
+        const r2 = swapCheck11h(newShift, nextDay);
+        if(!r2.ok) errors.push(`${label}: ${r2.reason} (rispetto al giorno successivo)`);
+      }
+
+      // Conta max giorni lavorativi consecutivi con overrides
+      function countMaxConsec(getCfgDay, center, overrides){
+        let mx=0, cr=0;
+        for(let i=-5; i<=5; i++){
+          const iso = isoDate(addDays(center, i));
+          let isWork;
+          if(iso in overrides){ isWork = overrides[iso]; }
+          else { const d = getCfgDay(iso); isWork = d ? !d.isRest : false; }
+          if(isWork){ cr++; mx=Math.max(mx,cr); } else cr=0;
+        }
+        return mx;
+      }
+
       const results = [];
 
       candidates.forEach(c => {
-        // 1. Il collega deve avere l'orario/riposo che voglio su targetISO
+        // Il collega deve avere esattamente quello che voglio su targetISO
         const dayC_target = getScheduleOnDate(c, targetISO);
         if(!dayC_target) return;
 
@@ -3820,46 +3846,70 @@ function buildHolidayMapForYear(year){
         }
         if(!colleagueHasDesired) return;
 
-        // Ruolo compatibile
         if(myRole && myRole !== c.role) return;
 
         const errors = [];
+        const dTarget = parseISODate(targetISO);
+        const cName = escapeHtml(c.name);
 
-        // 2. Scambio su targetISO: il collega prende il mio turno (dayMe)
-        if(dayMe){
-          const newForC_target = { isRest: dayMe.isRest, start: dayMe.start, end: dayMe.end };
-          swapValidate11h(c, targetISO, newForC_target).forEach(e => errors.push(`${escapeHtml(c.name)} (${targetISO}): ${e}`));
-          swapValidate5Consec(c, targetISO, !newForC_target.isRest).forEach(e => errors.push(`${escapeHtml(c.name)} (${targetISO}): ${e}`));
-        }
-
-        // 3. Se ho myISO: scambio bilaterale — collega cede anche il suo turno su myISO
-        let dayC_my = null;
-        if(myISO){
-          dayC_my = getScheduleOnDate(c, myISO);
-          // Il collega riceve il mio turno su myISO → validazione per il collega su myISO
+        if(!isBilateral){
+          // ── Stesso giorno: io cedo e prendo lo stesso giorno ──────────────
           if(dayMe){
-            const newForC_my = { isRest: dayMe.isRest, start: dayMe.start, end: dayMe.end };
-            swapValidate11h(c, myISO, newForC_my).forEach(e => errors.push(`${escapeHtml(c.name)} (${myISO}): ${e}`));
-            swapValidate5Consec(c, myISO, !newForC_my.isRest).forEach(e => errors.push(`${escapeHtml(c.name)} (${myISO}): ${e}`));
+            // Collega riceve dayMe su targetISO
+            const cPrev = getScheduleOnDate(c, isoDate(addDays(dTarget,-1)));
+            const cNext = getScheduleOnDate(c, isoDate(addDays(dTarget,+1)));
+            check11hExplicit(cPrev, dayMe, cNext, cName, errors);
+            swapValidate5Consec(c, targetISO, !dayMe.isRest).forEach(e => errors.push(`${cName}: ${e}`));
           }
-          // Io ricevo il turno del collega su myISO → validazione per me su myISO
-          if(useOwnMatrix && dayC_my){
-            const cfgA = buildCfgFromState();
-            const newForMe_my = { isRest: dayC_my.isRest, start: dayC_my.start, end: dayC_my.end };
-            swapValidate11h(cfgA, myISO, newForMe_my).forEach(e => errors.push(`Tu (${myISO}): ${e}`));
-            swapValidate5Consec(cfgA, myISO, !newForMe_my.isRest).forEach(e => errors.push(`Tu (${myISO}): ${e}`));
+          if(cfgA){
+            // Io ricevo dayC_target su targetISO
+            const mePrev = getScheduleOnDate(cfgA, isoDate(addDays(dTarget,-1)));
+            const meNext = getScheduleOnDate(cfgA, isoDate(addDays(dTarget,+1)));
+            check11hExplicit(mePrev, dayC_target, meNext, 'Tu', errors);
+            swapValidate5Consec(cfgA, targetISO, !dayC_target.isRest).forEach(e => errors.push(`Tu: ${e}`));
           }
-        }
+          results.push({ c, dayC_target, dayC_my: null, dayMe_target: null, errors });
 
-        // 4. Io ricevo il turno del collega su targetISO → validazione per me su targetISO
-        if(useOwnMatrix){
-          const cfgA = buildCfgFromState();
-          const newForMe_target = { isRest: dayC_target.isRest, start: dayC_target.start, end: dayC_target.end };
-          swapValidate11h(cfgA, targetISO, newForMe_target).forEach(e => errors.push(`Tu (${targetISO}): ${e}`));
-          swapValidate5Consec(cfgA, targetISO, !newForMe_target.isRest).forEach(e => errors.push(`Tu (${targetISO}): ${e}`));
-        }
+        } else {
+          // ── Bilateral: io cedo myISO, prendo targetISO ────────────────────
+          // Dopo lo scambio:
+          //   myISO:    io → ricevo dayC_my  |  collega → riceve dayMe
+          //   targetISO: io → ricevo dayC_target | collega → REST (cede il suo)
+          //
+          // Il turno che io ho ORIGINALMENTE su targetISO diventa quello del collega su targetISO
+          const dMy = parseISODate(myISO);
+          const dayC_my = getScheduleOnDate(c, myISO);
+          // Mio turno originale su targetISO (quello che il collega otterrà su targetISO)
+          const dayMe_target = cfgA ? getScheduleOnDate(cfgA, targetISO) : null;
 
-        results.push({ c, dayC_target, dayC_my, errors });
+          // ── Collega su myISO (riceve dayMe) ──────────────────────────────
+          if(dayMe){
+            const cPrev_my = getScheduleOnDate(c, isoDate(addDays(dMy,-1)));
+            // nextDay per collega su myISO nel post-scambio:
+            // se targetISO = myISO+1, il collega su targetISO avrà REST → usa dayMe_target o REST
+            // se targetISO ≠ myISO+1, usa il turno originale del collega il giorno dopo myISO
+            const myNextIso = isoDate(addDays(dMy,1));
+            const cNext_my = (myNextIso === targetISO)
+              ? (dayMe_target || { isRest: true })
+              : getScheduleOnDate(c, myNextIso);
+            check11hExplicit(cPrev_my, dayMe, cNext_my, cName, errors);
+            // 5-consecutivi: collega su myISO lavora, su targetISO ha REST (cede il turno)
+            const mx_c = countMaxConsec(iso => getScheduleOnDate(c, iso), dMy, { [myISO]: !dayMe.isRest, [targetISO]: false });
+            if(mx_c > 5) errors.push(`${cName}: Troppi giorni consecutivi di lavoro: ${mx_c} (massimo 5)`);
+          }
+
+          // ── Io su targetISO (ricevo dayC_target) ─────────────────────────
+          // prevDay per me su targetISO nel post-scambio = mio turno su myISO POST-scambio = dayC_my
+          const meNext_target = cfgA ? getScheduleOnDate(cfgA, isoDate(addDays(dTarget,+1))) : null;
+          check11hExplicit(dayC_my || null, dayC_target, meNext_target, 'Tu', errors);
+          if(cfgA){
+            // 5-consecutivi: su myISO ho REST (ceduto); su targetISO lavoro
+            const mx_me = countMaxConsec(iso => getScheduleOnDate(cfgA, iso), dTarget, { [myISO]: false, [targetISO]: !dayC_target.isRest });
+            if(mx_me > 5) errors.push(`Tu: Troppi giorni consecutivi di lavoro: ${mx_me} (massimo 5)`);
+          }
+
+          results.push({ c, dayC_target, dayC_my, dayMe_target, errors });
+        }
       });
 
       // --- HTML risultati ---
@@ -3883,12 +3933,15 @@ function buildHolidayMapForYear(year){
 
         if(ok.length){
           html += `<div style="margin-bottom:10px;">`;
-          ok.forEach(({c, dayC_target, dayC_my}) => {
-            // Cosa ottiene ciascuno
-            const iGetOnTarget  = desiredLabel;
-            const cGetsOnTarget = dayMe ? swapFmtShift(dayMe) : '(turno tuo)';
-            const iGetOnMy      = myISO && dayC_my ? swapFmtShift(dayC_my) : null;
-            const cGetsOnMy     = myISO && dayMe   ? swapFmtShift(dayMe) : null;
+          ok.forEach(({c, dayC_target, dayC_my, dayMe_target}) => {
+            // Cosa ottiene ciascuno dopo lo scambio
+            const iGetOnTarget  = desiredLabel;                         // io su targetISO
+            // Collega su targetISO: nel bilaterale ottiene il MIO turno originale su targetISO
+            const cGetsOnTarget = isBilateral
+              ? (dayMe_target ? swapFmtShift(dayMe_target) : '🔴 Riposo')
+              : (dayMe ? swapFmtShift(dayMe) : '(turno tuo)');
+            const iGetOnMy  = isBilateral && dayC_my ? swapFmtShift(dayC_my) : null; // io su myISO
+            const cGetsOnMy = isBilateral && dayMe   ? swapFmtShift(dayMe)   : null; // collega su myISO
 
             html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);border-radius:10px;margin-bottom:6px;">
               <i class="fa-solid fa-circle-check" style="color:#22c55e;font-size:18px;flex-shrink:0;margin-top:1px;"></i>
@@ -3904,14 +3957,14 @@ function buildHolidayMapForYear(year){
                     <div style="font-size:10px;opacity:0.5;margin-bottom:2px;">${escapeHtml(c.name)} ottiene (${fmtDay(targetISO)})</div>
                     <div style="font-weight:900;">${cGetsOnTarget}</div>
                   </div>
-                  ${myISO && iGetOnMy ? `
+                  ${isBilateral && iGetOnMy !== null ? `
                   <div style="background:rgba(255,255,255,0.65);border-radius:6px;padding:6px 8px;">
                     <div style="font-size:10px;opacity:0.5;margin-bottom:2px;">Tu ottieni (${fmtDay(myISO)})</div>
                     <div style="font-weight:900;">${iGetOnMy}</div>
                   </div>
                   <div style="background:rgba(255,255,255,0.65);border-radius:6px;padding:6px 8px;">
                     <div style="font-size:10px;opacity:0.5;margin-bottom:2px;">${escapeHtml(c.name)} ottiene (${fmtDay(myISO)})</div>
-                    <div style="font-weight:900;">${cGetsOnMy||'(turno tuo)'}</div>
+                    <div style="font-weight:900;">${cGetsOnMy||'—'}</div>
                   </div>` : ''}
                 </div>
               </div>
