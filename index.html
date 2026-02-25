@@ -3808,8 +3808,9 @@ function buildHolidayMapForYear(year){
         resultEl.style.display = 'block'; return;
       }
 
-      // Turno che ho IO su targetISO prima dello scambio (per escludere scambi inutili)
+      // Turno che ho IO su targetISO e su myISO prima dello scambio (per escludere scambi inutili)
       const myCurrentOnTarget = cfgA ? getScheduleOnDate(cfgA, targetISO) : null;
+      const myCurrentOnMy     = (cfgA && isBilateral && myISO) ? getScheduleOnDate(cfgA, myISO) : null;
 
       // Due turni sono identici?
       function sameShift(a, b){
@@ -3846,8 +3847,8 @@ function buildHolidayMapForYear(year){
         const dayC_target = getScheduleOnDate(c, targetISO);
         if(!dayC_target) return;
 
-        // Scambio inutile: il collega ha lo stesso turno che ho già io su targetISO
-        if(sameShift(dayC_target, myCurrentOnTarget)) return;
+        // Scambio inutile (stesso giorno): il collega ha identicamente lo stesso turno che ho io
+        if(!isBilateral && sameShift(dayC_target, myCurrentOnTarget)) return;
 
         // isExact: il collega ha esattamente quello che ho chiesto
         let isExact = false;
@@ -3883,6 +3884,8 @@ function buildHolidayMapForYear(year){
           // ── Bilaterale: cedo myISO, prendo targetISO ──────────────────────
           const dMy = parseISODate(myISO);
           const dayC_my = getScheduleOnDate(c, myISO);
+          // Scambio inutile (bilaterale): otterrei esattamente quello che ho già su entrambi i giorni
+          if(sameShift(dayC_target, myCurrentOnTarget) && sameShift(dayC_my, myCurrentOnMy)) return;
           const dayMe_target = cfgA ? getScheduleOnDate(cfgA, targetISO) : null;
 
           if(dayMe){
