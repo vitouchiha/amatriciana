@@ -1573,9 +1573,10 @@
             Aggiungi almeno un collega con configurazione completa.
           </div>
           <div id="swapForm" style="display:none;">
-            <!-- Sezione manuale: visibile solo se non è stata generata la propria matrice -->
-            <div id="swapManualSection" style="display:none; margin-bottom:10px; padding:10px 12px; border-radius:10px; background:var(--ctrl-bg);">
-              <div style="font-size:11px; font-weight:700; opacity:0.55; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Il tuo turno (senza matrice)</div>
+
+            <!-- Sezione: il tuo turno quel giorno (auto da matrice o manuale) -->
+            <div id="swapManualSection" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:var(--ctrl-bg);">
+              <div style="font-size:11px; font-weight:700; opacity:0.55; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Il tuo turno quel giorno</div>
               <div class="controls-grid" style="gap:8px;">
                 <div class="ctrl-item">
                   <span class="control-label">Sei</span>
@@ -1594,23 +1595,32 @@
                 </div>
               </div>
             </div>
+
+            <!-- Cosa vuoi ottenere -->
             <div class="controls-grid" style="gap:8px;">
               <div class="ctrl-item">
-                <span class="control-label">Collega</span>
-                <select id="swapColleagueSelect" class="hours-select" style="width:100%;"></select>
+                <span class="control-label">Il giorno che vuoi</span>
+                <input type="date" id="swapTargetDate" class="search-date-input" style="width:100%;" />
               </div>
               <div class="ctrl-item">
-                <span class="control-label">Il tuo giorno</span>
-                <input type="date" id="swapDateA" class="search-date-input" style="width:100%;" />
+                <span class="control-label">Vuoi</span>
+                <div class="segmented" id="swapDesiredType" role="group">
+                  <button type="button" data-type="shift" aria-pressed="true">Un orario</button>
+                  <button type="button" data-type="rest" aria-pressed="false">Riposo</button>
+                </div>
               </div>
-              <div class="ctrl-item">
-                <span class="control-label">Giorno del collega</span>
-                <input type="date" id="swapDateB" class="search-date-input" style="width:100%;" />
+              <div class="ctrl-item" id="swapDesiredShiftFields">
+                <span class="control-label">Orario desiderato</span>
+                <div style="display:flex;gap:6px;align-items:center;">
+                  <input type="time" id="swapDesiredStart" class="search-date-input" style="flex:1;" />
+                  <span style="opacity:0.5;font-size:12px;">–</span>
+                  <input type="time" id="swapDesiredEnd" class="search-date-input" style="flex:1;" />
+                </div>
               </div>
               <div class="ctrl-item" style="justify-content:flex-end;">
                 <span class="control-label" style="visibility:hidden;">OK</span>
-                <button class="btn ok-btn" id="swapVerifyBtn" type="button">
-                  <i class="fa-solid fa-arrows-rotate"></i> Verifica scambio
+                <button class="btn ok-btn" id="swapSearchBtn" type="button">
+                  <i class="fa-solid fa-magnifying-glass"></i> Cerca colleghi
                 </button>
               </div>
             </div>
@@ -3756,46 +3766,6 @@ function buildHolidayMapForYear(year){
       return [];
     }
 
-    // Validazione completa di uno scambio
-    // manualRoleA e manualDayA vengono usati quando non è stata generata la propria matrice
-    function validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA){
-      const errors = [];
-      const useManual = !state.generated || state.anchorPatternIndex === null;
-      if(useManual && !manualDayA){
-        errors.push('Genera la tua matrice oppure inserisci il tuo turno manualmente.'); return errors;
-      }
-      // Ruolo compatibile
-      const myRole = useManual ? manualRoleA : state.role;
-      if(myRole !== collegaCfg.role){
-        const rA = myRole === 'tutor' ? 'Tutor' : 'Dipendente';
-        const rB = collegaCfg.role === 'tutor' ? 'Tutor' : 'Dipendente';
-        errors.push(`Ruoli incompatibili: tu sei ${rA}, ${collegaName} è ${rB}. Solo scambi tra pari ruolo.`);
-        return errors;
-      }
-      const dayA = useManual ? manualDayA : (() => {
-        const cfgA = buildCfgFromState();
-        return getScheduleOnDate(cfgA, dateA_iso);
-      })();
-      const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
-      if(!dayA && !useManual){ errors.push(`Il giorno ${dateA_iso} è fuori dalla tua matrice.`); return errors; }
-      if(!dayB){ errors.push(`Il giorno ${dateB_iso} è fuori dalla matrice di ${collegaName}.`); return errors; }
-
-      // Dopo lo scambio: tu prendi il turno di dayB su dateA, collega prende dayA su dateB
-      const newForA = { isRest: dayB.isRest, start: dayB.start, end: dayB.end };
-      const newForB = { isRest: dayA.isRest, start: dayA.start, end: dayA.end };
-
-      // A-side: solo controllabile se la matrice è stata generata (serve sapere i giorni vicini)
-      if(!useManual){
-        const cfgA = buildCfgFromState();
-        swapValidate11h(cfgA, dateA_iso, newForA).forEach(e => errors.push(`[Tu – ${dateA_iso}] ${e}`));
-        swapValidate5Consec(cfgA, dateA_iso, !newForA.isRest).forEach(e => errors.push(`[Tu] ${e}`));
-      }
-      // B-side: sempre controllabile
-      swapValidate11h(collegaCfg, dateB_iso, newForB).forEach(e => errors.push(`[${collegaName} – ${dateB_iso}] ${e}`));
-      swapValidate5Consec(collegaCfg, dateB_iso, !newForB.isRest).forEach(e => errors.push(`[${collegaName}] ${e}`));
-      return errors;
-    }
-
     function swapFmtDay(iso){
       const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
       const dt = parseISODate(iso);
@@ -3806,46 +3776,125 @@ function buildHolidayMapForYear(year){
       return day.isRest ? '🔴 Riposo' : `${day.start} – ${day.end}`;
     }
 
-    function renderSwapResult(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA){
+    // Nuovo motore di ricerca: cerca tutti i colleghi con cui è possibile fare lo scambio
+    // targetISO: giorno desiderato
+    // desiredType: 'shift' | 'rest'
+    // desiredStart/End: orario desiderato (solo se desiredType='shift')
+    // dayMe: turno utente su targetISO (da matrice o manuale) — null se non disponibile
+    // myRole: ruolo utente
+    function renderSwapSearch(targetISO, desiredType, desiredStart, desiredEnd, dayMe, myRole){
       const resultEl = document.getElementById('swapResult');
       if(!resultEl) return;
-      const useManual = !state.generated || state.anchorPatternIndex === null;
-      const dayA = useManual ? manualDayA : getScheduleOnDate(buildCfgFromState(), dateA_iso);
-      const dayB = getScheduleOnDate(collegaCfg, dateB_iso);
-      const errors = validateSwap(dateA_iso, dateB_iso, collegaCfg, collegaName, manualRoleA, manualDayA);
 
-      let html = `<div style="background:var(--ctrl-bg);border-radius:12px;padding:12px 14px;margin-bottom:10px;font-size:13px;">
-        <div style="margin-bottom:8px;font-weight:700;opacity:0.6;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">Riepilogo</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-          <div>
-            <div style="font-size:11px;opacity:0.55;margin-bottom:2px;">Tu · ${swapFmtDay(dateA_iso)}</div>
-            <div style="font-weight:700;">${swapFmtShift(dayA)}</div>
-            <div style="font-size:11px;opacity:0.45;margin-top:3px;">→ ${swapFmtShift(dayB ? { isRest: dayB.isRest, start: dayB.start, end: dayB.end } : null)}</div>
-          </div>
-          <div>
-            <div style="font-size:11px;opacity:0.55;margin-bottom:2px;">${escapeHtml(collegaName)} · ${swapFmtDay(dateB_iso)}</div>
-            <div style="font-weight:700;">${swapFmtShift(dayB)}</div>
-            <div style="font-size:11px;opacity:0.45;margin-top:3px;">→ ${swapFmtShift(dayA ? { isRest: dayA.isRest, start: dayA.start, end: dayA.end } : null)}</div>
-          </div>
-        </div>
+      const useOwnMatrix = !!(state.generated && state.anchorPatternIndex !== null);
+      const candidates = state.colleghi.filter(c =>
+        c.startWeekISO && c.anchorPatternIndex !== null && c.anchorPatternIndex !== undefined
+      );
+
+      if(!candidates.length){
+        resultEl.innerHTML = `<div class="note">Nessun collega configurato.</div>`;
+        resultEl.style.display = 'block'; return;
+      }
+
+      const results = [];
+
+      candidates.forEach(c => {
+        const dayC = getScheduleOnDate(c, targetISO);
+        if(!dayC) return; // fuori dalla matrice del collega
+
+        // Controlla se il collega ha quello che voglio
+        let colleagueHasDesired = false;
+        if(desiredType === 'rest'){
+          colleagueHasDesired = dayC.isRest;
+        } else {
+          // shift: orario identico (HH:MM)
+          colleagueHasDesired = !dayC.isRest && dayC.start === desiredStart && dayC.end === desiredEnd;
+        }
+        if(!colleagueHasDesired) return;
+
+        // Ruolo compatibile se conosco il mio ruolo
+        if(myRole && myRole !== c.role) return;
+
+        // Valida il lato collega: dopo lo scambio prende il turno che avevo io
+        const errors = [];
+        const newForC = dayMe ? { isRest: dayMe.isRest, start: dayMe.start, end: dayMe.end }
+                               : { isRest: (desiredType === 'rest' ? false : true) }; // approssimazione se dayMe sconosciuto
+
+        swapValidate11h(c, targetISO, newForC).forEach(e => errors.push(`${escapeHtml(c.name)}: ${e}`));
+        swapValidate5Consec(c, targetISO, !newForC.isRest).forEach(e => errors.push(`${escapeHtml(c.name)}: ${e}`));
+
+        // Se ho la matrice controllo anche il mio lato
+        if(useOwnMatrix && dayMe){
+          const cfgA = buildCfgFromState();
+          const newForMe = { isRest: dayC.isRest, start: dayC.start, end: dayC.end };
+          swapValidate11h(cfgA, targetISO, newForMe).forEach(e => errors.push(`Tu: ${e}`));
+          swapValidate5Consec(cfgA, targetISO, !newForMe.isRest).forEach(e => errors.push(`Tu: ${e}`));
+        }
+
+        results.push({ c, dayC, errors });
+      });
+
+      // Costruisci HTML risultati
+      const dateLabel = (() => {
+        const dayNames = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+        const dt = parseISODate(targetISO);
+        return `${dayNames[dt.getDay()]} ${fmtDayMonth(dt)}`;
+      })();
+      const desiredLabel = desiredType === 'rest' ? '🔴 Riposo' : `${desiredStart} – ${desiredEnd}`;
+
+      let html = `<div style="font-size:11px;font-weight:900;opacity:0.55;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">
+        Risultati per <strong>${dateLabel}</strong> → <strong>${desiredLabel}</strong>
       </div>`;
 
-      if(errors.length === 0){
-        html += `<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.28);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;">
-          <i class="fa-solid fa-circle-check" style="color:#22c55e;font-size:20px;flex-shrink:0;"></i>
-          <span style="font-size:13px;font-weight:600;color:#22c55e;">Scambio ammesso ✓</span>
-        </div>`;
+      if(!results.length){
+        html += `<div class="note"><i class="fa-solid fa-circle-info" style="margin-right:6px;"></i>Nessun collega ha l'orario desiderato in quel giorno.</div>`;
       } else {
-        html += `<div style="background:rgba(248,113,113,.10);border:1px solid rgba(248,113,113,.22);border-radius:10px;padding:10px 14px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-            <i class="fa-solid fa-circle-xmark" style="color:#f87171;font-size:20px;flex-shrink:0;"></i>
-            <span style="font-size:13px;font-weight:600;color:#f87171;">Scambio non ammesso</span>
-          </div>
-          <ul style="margin:0;padding-left:18px;font-size:12px;display:flex;flex-direction:column;gap:4px;">
-            ${errors.map(e => `<li>${escapeHtml(e)}</li>`).join('')}
-          </ul>
-        </div>`;
+        const ok  = results.filter(r => r.errors.length === 0);
+        const nok = results.filter(r => r.errors.length >  0);
+
+        if(ok.length){
+          html += `<div style="margin-bottom:10px;">`;
+          ok.forEach(({c, dayC}) => {
+            const myShiftAfter = desiredLabel;
+            const cShiftAfter  = swapFmtShift(dayMe);
+            html += `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.22);border-radius:10px;margin-bottom:6px;">
+              <i class="fa-solid fa-circle-check" style="color:#22c55e;font-size:18px;flex-shrink:0;margin-top:1px;"></i>
+              <div style="flex:1;min-width:0;">
+                <div style="font-weight:900;font-size:13px;">${escapeHtml(c.name)}</div>
+                <div style="font-size:11px;opacity:0.6;margin-top:1px;">${c.role==='tutor'?'Tutor':'Dipendente'}${c.team ? ' · Team '+c.team : ''}</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px;font-size:12px;">
+                  <div style="background:rgba(255,255,255,0.6);border-radius:6px;padding:5px 8px;">
+                    <div style="font-size:10px;opacity:0.55;margin-bottom:1px;">Tu ottieni</div>
+                    <div style="font-weight:900;">${myShiftAfter}</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,0.6);border-radius:6px;padding:5px 8px;">
+                    <div style="font-size:10px;opacity:0.55;margin-bottom:1px;">${escapeHtml(c.name)} ottiene</div>
+                    <div style="font-weight:900;">${cShiftAfter}</div>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          });
+          html += `</div>`;
+        }
+
+        if(nok.length){
+          html += `<div style="margin-bottom:4px;font-size:11px;font-weight:700;opacity:0.45;margin-top:${ok.length?8:0}px;">Problemi contrattuali</div>`;
+          nok.forEach(({c, dayC, errors}) => {
+            html += `<div style="padding:9px 12px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.18);border-radius:10px;margin-bottom:6px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+                <i class="fa-solid fa-circle-xmark" style="color:#f87171;font-size:15px;flex-shrink:0;"></i>
+                <span style="font-weight:900;font-size:13px;">${escapeHtml(c.name)}</span>
+                <span style="font-size:11px;opacity:0.5;">${c.role==='tutor'?'Tutor':'Dipendente'}${c.team?' · Team '+c.team:''}</span>
+              </div>
+              <ul style="margin:0;padding-left:16px;font-size:11px;display:flex;flex-direction:column;gap:3px;opacity:0.75;">
+                ${errors.map(e=>`<li>${e}</li>`).join('')}
+              </ul>
+            </div>`;
+          });
+        }
       }
+
       resultEl.innerHTML = html;
       resultEl.style.display = 'block';
     }
@@ -3859,55 +3908,61 @@ function buildHolidayMapForYear(year){
       prereq.style.display = hasColleghi ? 'none' : '';
       form.style.display   = hasColleghi ? '' : 'none';
       if(manual) manual.style.display = (hasColleghi && !state.generated) ? '' : 'none';
-      if(hasColleghi){
-        const sel = document.getElementById('swapColleagueSelect');
-        if(!sel) return;
-        sel.innerHTML = '<option value="">— seleziona —</option>';
-        state.colleghi.forEach((c, idx) => {
-          if(!c.startWeekISO || c.anchorPatternIndex === null || c.anchorPatternIndex === undefined) return;
-          const opt = document.createElement('option');
-          opt.value = String(idx);
-          opt.textContent = `${c.name} (${c.role === 'tutor' ? 'Tutor' : 'Dipendente'})`;
-          sel.appendChild(opt);
-        });
-      }
       // Sincronizza anche la card Trova Collega
       refreshFindColReadiness();
     }
 
     function initSwap(){
       refreshSwapReadiness();
-      // Wire swap role segmented buttons
+
+      // Typed "Sei" segmented (modalità manuale)
       document.querySelectorAll('#swapRoleSegment button').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('#swapRoleSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
         });
       });
-      const verifyBtn = document.getElementById('swapVerifyBtn');
-      if(!verifyBtn) return;
-      verifyBtn.addEventListener('click', () => {
-        const sel    = document.getElementById('swapColleagueSelect');
-        const dateA  = document.getElementById('swapDateA').value;
-        const dateB  = document.getElementById('swapDateB').value;
-        if(!sel || !sel.value){ toast('Attenzione', 'Seleziona un collega.'); return; }
-        if(!dateA){ toast('Attenzione', 'Inserisci il tuo giorno.'); return; }
-        if(!dateB){ toast('Attenzione', 'Inserisci il giorno del collega.'); return; }
-        const collega = state.colleghi[Number(sel.value)];
-        if(!collega){ toast('Errore', 'Collega non trovato.'); return; }
 
-        // Modalità manuale: raccoglie il turno inserito dall'utente
-        const useManual = !state.generated || state.anchorPatternIndex === null;
-        let manualRoleA = null, manualDayA = null;
-        if(useManual){
-          const rolBtn = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
-          manualRoleA = rolBtn ? rolBtn.getAttribute('data-role') : null;
-          const tStart = document.getElementById('swapManualStart').value;
-          const tEnd   = document.getElementById('swapManualEnd').value;
-          if(!manualRoleA){ toast('Attenzione', 'Seleziona il tuo ruolo.'); return; }
-          if(!tStart || !tEnd){ toast('Attenzione', 'Inserisci l\'orario del tuo turno.'); return; }
-          manualDayA = { isRest: false, start: tStart, end: tEnd };
+      // Tipo desiderato: orario / riposo
+      document.querySelectorAll('#swapDesiredType button').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#swapDesiredType button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+          const isShift = btn.getAttribute('data-type') === 'shift';
+          const sf = document.getElementById('swapDesiredShiftFields');
+          if(sf) sf.style.display = isShift ? '' : 'none';
+        });
+      });
+
+      const searchBtn = document.getElementById('swapSearchBtn');
+      if(!searchBtn) return;
+      searchBtn.addEventListener('click', () => {
+        const targetDate = document.getElementById('swapTargetDate').value;
+        if(!targetDate){ toast('Attenzione', 'Inserisci il giorno che ti interessa.'); return; }
+
+        const typeBtn = document.querySelector('#swapDesiredType button[aria-pressed="true"]');
+        const desiredType = typeBtn ? typeBtn.getAttribute('data-type') : 'shift';
+
+        let desiredStart = '', desiredEnd = '';
+        if(desiredType === 'shift'){
+          desiredStart = document.getElementById('swapDesiredStart').value;
+          desiredEnd   = document.getElementById('swapDesiredEnd').value;
+          if(!desiredStart || !desiredEnd){ toast('Attenzione', 'Inserisci l\'orario desiderato.'); return; }
         }
-        renderSwapResult(dateA, dateB, collega, collega.name, manualRoleA, manualDayA);
+
+        // Recupera il mio turno quel giorno (da matrice o manuale)
+        const useOwnMatrix = !!(state.generated && state.anchorPatternIndex !== null);
+        let dayMe = null, myRole = null;
+        if(useOwnMatrix){
+          dayMe  = getScheduleOnDate(buildCfgFromState(), targetDate);
+          myRole = state.role;
+        } else {
+          const rolBtn   = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
+          const tStart   = document.getElementById('swapManualStart').value;
+          const tEnd     = document.getElementById('swapManualEnd').value;
+          myRole = rolBtn ? rolBtn.getAttribute('data-role') : null;
+          if(tStart && tEnd) dayMe = { isRest: false, start: tStart, end: tEnd };
+        }
+
+        renderSwapSearch(targetDate, desiredType, desiredStart, desiredEnd, dayMe, myRole);
       });
     }
 
