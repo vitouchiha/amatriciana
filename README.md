@@ -115,6 +115,8 @@ git push
 
 | Versione | Data | Note |
 |----------|------|------|
+| **v1.14.7** | 2026-02-26 | Fix: scambi bilaterale → escludi se anche solo un giorno è un no-op (OR invece di AND) |
+| **v1.14.6** | 2026-02-26 | Fix: usa dayMe (non matrice) per rilevare no-op su myISO nello scambio bilaterale |
 | **v1.14.5** | 2026-02-26 | Fix: escludi scambi inutili in cui otterresti lo stesso orario già in possesso (bilaterale) |
 | **v1.14.4** | 2026-02-26 | Feat: Scambi Orari mostra tutte le opzioni valide, non solo la corrispondenza esatta (sezioni: esatta · altre opzioni · problemi contrattuali) |
 | **v1.14.3** | 2026-02-26 | Fix: validazione 11h scambio bilaterale usa giorni post-scambio; fix display turno collega su targetISO |
