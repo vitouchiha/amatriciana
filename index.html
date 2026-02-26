@@ -3808,9 +3808,9 @@ function buildHolidayMapForYear(year){
         resultEl.style.display = 'block'; return;
       }
 
-      // Turno che ho IO su targetISO e su myISO prima dello scambio (per escludere scambi inutili)
+      // Turno che ho IO su targetISO prima dello scambio (per escludere scambi inutili)
+      // Per myISO usiamo direttamente dayMe (passato come parametro, già corretto sia da matrice che da input manuale)
       const myCurrentOnTarget = cfgA ? getScheduleOnDate(cfgA, targetISO) : null;
-      const myCurrentOnMy     = (cfgA && isBilateral && myISO) ? getScheduleOnDate(cfgA, myISO) : null;
 
       // Due turni sono identici?
       function sameShift(a, b){
@@ -3885,7 +3885,8 @@ function buildHolidayMapForYear(year){
           const dMy = parseISODate(myISO);
           const dayC_my = getScheduleOnDate(c, myISO);
           // Scambio inutile (bilaterale): otterrei esattamente quello che ho già su entrambi i giorni
-          if(sameShift(dayC_target, myCurrentOnTarget) && sameShift(dayC_my, myCurrentOnMy)) return;
+          // Scambio inutile: otterrei su targetISO lo stesso che ho già E su myISO lo stesso che sto cedendo (dayMe)
+          if(sameShift(dayC_target, myCurrentOnTarget) && sameShift(dayC_my, dayMe)) return;
           const dayMe_target = cfgA ? getScheduleOnDate(cfgA, targetISO) : null;
 
           if(dayMe){
