@@ -4071,6 +4071,17 @@ function buildHolidayMapForYear(year){
         document.getElementById('swapDesiredEnd').value = end;
       });
 
+      // Sincronizza mese: quando cambia "il giorno che hai", porta "il giorno che vuoi" nello stesso mese
+      document.getElementById('swapMyDate').addEventListener('change', function(){
+        if(!this.value) return;
+        const target = document.getElementById('swapTargetDate');
+        const myYM = this.value.substring(0, 7); // "YYYY-MM"
+        const curYM = target.value ? target.value.substring(0, 7) : '';
+        if(curYM !== myYM){
+          target.value = myYM + '-01';
+        }
+      });
+
       const searchBtn = document.getElementById('swapSearchBtn');
       if(!searchBtn) return;
       searchBtn.addEventListener('click', () => {
