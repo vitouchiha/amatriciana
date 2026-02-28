@@ -1360,6 +1360,12 @@
           </button>
           <span class="label">Colleghi</span>
         </div>
+        <div class="ctrl" id="cercaOrarioCtrl" style="display:none;">
+          <button class="icon-btn" id="cercaOrarioBtn" type="button" title="Cerca orario" aria-label="Cerca orario">
+            <i class="fa-solid fa-magnifying-glass-clock"></i>
+          </button>
+          <span class="label">Cerca</span>
+        </div>
       </div>
 
       <div class="top-actions" role="group" aria-label="Azioni principali">
@@ -2834,15 +2840,18 @@ function buildHolidayMapForYear(year){
       // Orario colleghi toggle (brand area)
       const orarioCtrl = document.getElementById('orarioColleghiCtrl');
       if(orarioCtrl) orarioCtrl.style.display = isAdmin ? '' : 'none';
-      // Admin-only cards
+      // Cerca orario toggle (brand area)
+      const cercaCtrl = document.getElementById('cercaOrarioCtrl');
+      if(cercaCtrl) cercaCtrl.style.display = isAdmin ? '' : 'none';
+      // Admin-only cards — NON auto-mostrate, solo via pulsanti
       const swapC = document.getElementById('swapCard');
       const findC = document.getElementById('findColleagueCard');
       const teamC = document.getElementById('teamCard');
       const srchC = document.getElementById('searchDateCard');
-      if(swapC) swapC.style.display = isAdmin ? '' : 'none';
-      if(findC) findC.style.display = isAdmin ? '' : 'none';
+      if(!isAdmin && swapC) swapC.style.display = 'none';
+      if(!isAdmin && findC) findC.style.display = 'none';
       if(!isAdmin && teamC) teamC.style.display = 'none';
-      if(srchC) srchC.style.display = isAdmin ? '' : 'none';
+      if(!isAdmin && srchC) srchC.style.display = 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
     }
@@ -2873,6 +2882,17 @@ function buildHolidayMapForYear(year){
         }
       });
       passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('confirmAdminBtn').click(); });
+
+      document.getElementById('cercaOrarioBtn').addEventListener('click', ()=>{
+        const swapC = document.getElementById('swapCard');
+        const findC = document.getElementById('findColleagueCard');
+        const srchC = document.getElementById('searchDateCard');
+        const btn   = document.getElementById('cercaOrarioBtn');
+        const cards = [swapC, findC, srchC].filter(Boolean);
+        const visible = cards.some(c => c.style.display !== 'none' && c.style.display !== '');
+        cards.forEach(c => c.style.display = visible ? 'none' : '');
+        if(btn) btn.classList.toggle('active', !visible);
+      });
 
       document.getElementById('orarioColleghiBtn').addEventListener('click', ()=>{
         const teamC = document.getElementById('teamCard');
