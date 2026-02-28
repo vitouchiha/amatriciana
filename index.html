@@ -1292,6 +1292,82 @@
       color:var(--fg); font-size:14px; font-family:inherit; font-weight:700;
     }
     .search-date-input:focus{ outline:none; border-color:rgba(92,155,255,0.5); }
+
+    /* ===== CUSTOM DATE/TIME PICKERS ===== */
+    .swap-picker-overlay{
+      position:fixed;inset:0;z-index:9999;
+      background:rgba(0,0,0,0.45);backdrop-filter:blur(4px);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .swap-cal-popup,.swap-time-popup{
+      background:var(--card);border-radius:22px;
+      box-shadow:0 24px 64px rgba(0,0,0,0.28);
+      padding:22px;width:min(340px,92vw);
+    }
+    .swap-picker-head{
+      display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;
+    }
+    .swap-picker-title{
+      font-size:13px;font-weight:900;display:flex;align-items:center;gap:8px;
+    }
+    .swap-picker-title i{color:var(--accent);font-size:14px;}
+    .swap-picker-close{
+      width:28px;height:28px;border-radius:50%;background:var(--input);
+      border:none;cursor:pointer;font-size:17px;color:var(--text);
+      display:flex;align-items:center;justify-content:center;line-height:1;
+    }
+    .swap-cal-nav{
+      display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;
+    }
+    .swap-cal-nav button{
+      background:none;border:none;cursor:pointer;color:var(--text);
+      font-size:22px;padding:2px 10px;border-radius:8px;
+    }
+    .swap-cal-nav button:hover{background:var(--input);}
+    .swap-cal-month{font-size:15px;font-weight:800;}
+    .swap-cal-dow{
+      display:grid;grid-template-columns:repeat(7,1fr);margin-bottom:4px;
+    }
+    .swap-cal-dow span{
+      text-align:center;font-size:11px;font-weight:800;opacity:0.45;padding:4px 0;
+    }
+    .swap-cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+    .scd-btn{
+      aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+      font-size:13px;font-weight:700;border-radius:50%;
+      cursor:pointer;border:none;background:none;color:var(--text);
+      transition:background 0.12s,color 0.12s;
+    }
+    .scd-btn:hover:not(.scd-other):not(.scd-sel){background:var(--input);}
+    .scd-btn.scd-other{opacity:0.2;cursor:default;pointer-events:none;}
+    .scd-btn.scd-today{background:rgba(92,155,255,0.15);color:var(--accent);}
+    .scd-btn.scd-sel{background:var(--accent);color:#fff;}
+    /* trigger buttons */
+    .swap-date-trigger,.swap-time-trigger{
+      display:flex;align-items:center;gap:10px;
+      width:100%;padding:10px 14px;border-radius:12px;
+      background:var(--input);border:1px solid var(--stroke);
+      color:var(--text);font-size:14px;font-family:inherit;font-weight:700;
+      cursor:pointer;text-align:left;
+    }
+    .swap-date-trigger i,.swap-time-trigger i{opacity:0.45;flex-shrink:0;}
+    /* time picker cards */
+    .swap-time-grid{
+      display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:4px;
+    }
+    .swap-time-card{
+      background:var(--input);border:1.5px solid var(--stroke);
+      border-radius:14px;padding:13px 15px;cursor:pointer;
+      transition:background 0.13s,border-color 0.13s;
+      text-align:left;font-family:inherit;
+    }
+    .swap-time-card:hover:not(.stc-sel){border-color:var(--accent);}
+    .swap-time-card.stc-sel{background:var(--accent);border-color:var(--accent);}
+    .stc-start{font-size:20px;font-weight:900;display:block;color:var(--text);}
+    .stc-arrow{font-size:11px;opacity:0.45;margin:3px 0;color:var(--text);}
+    .stc-end{font-size:13px;font-weight:700;opacity:0.6;display:block;color:var(--text);}
+    .swap-time-card.stc-sel .stc-start,.swap-time-card.stc-sel .stc-arrow,.swap-time-card.stc-sel .stc-end{color:#fff;opacity:1;}
+
     .search-results{ display:flex; flex-direction:column; gap:6px; margin-top:12px; }
     .sr-row{
       display:flex; align-items:center; gap:10px;
@@ -1620,7 +1696,7 @@
                 </div>
                 <div class="ctrl-item">
                   <span class="control-label">Inizio turno</span>
-                  <select id="swapManualStart" class="hours-select" style="width:100%;">
+                  <select id="swapManualStart" style="display:none;">
                     <option value="">-- orario --</option>
                     <option value="06:00">06:00</option>
                     <option value="08:00">08:00</option>
@@ -1629,9 +1705,12 @@
                     <option value="15:00">15:00</option>
                     <option value="18:00">18:00</option>
                   </select>
+                  <input type="time" id="swapManualEnd" style="display:none;" readonly />
+                  <button type="button" class="swap-time-trigger" id="swapManualStartBtn">
+                    <i class="fa-regular fa-clock"></i>
+                    <span id="swapManualStartLbl">Seleziona orario</span>
+                  </button>
                 </div>
-                <!-- Fine turno nascosta, popolata via JS -->
-                <input type="time" id="swapManualEnd" style="display:none;" readonly />
               </div>
             </div>
 
@@ -1639,17 +1718,25 @@
             <div class="controls-grid" style="gap:8px;">
               <div class="ctrl-item" style="flex:1 1 150px;min-width:150px;">
                 <span class="control-label">Il giorno che hai</span>
-                <input type="date" id="swapMyDate" class="search-date-input" style="width:100%;min-width:150px;" />
+                <input type="date" id="swapMyDate" style="display:none;" />
+                <button type="button" class="swap-date-trigger" id="swapMyDateBtn">
+                  <i class="fa-regular fa-calendar"></i>
+                  <span id="swapMyDateLbl">Seleziona data</span>
+                </button>
               </div>
               <div class="ctrl-item" style="flex:1 1 150px;min-width:150px;">
                 <span class="control-label">Il giorno che vuoi</span>
-                <input type="date" id="swapTargetDate" class="search-date-input" style="width:100%;min-width:150px;" />
+                <input type="date" id="swapTargetDate" style="display:none;" />
+                <button type="button" class="swap-date-trigger" id="swapTargetDateBtn">
+                  <i class="fa-regular fa-calendar"></i>
+                  <span id="swapTargetDateLbl">Seleziona data</span>
+                </button>
               </div>
             </div>
             <div class="controls-grid" style="gap:8px;margin-top:4px;">
               <div class="ctrl-item" id="swapDesiredShiftFields">
                 <span class="control-label">Orario desiderato</span>
-                <select id="swapDesiredStart" class="hours-select" style="width:100%;">
+                <select id="swapDesiredStart" style="display:none;">
                   <option value="">-- orario --</option>
                   <option value="06:00">06:00</option>
                   <option value="08:00">08:00</option>
@@ -1658,8 +1745,11 @@
                   <option value="15:00">15:00</option>
                   <option value="18:00">18:00</option>
                 </select>
-                <!-- Fine desiderata nascosta, popolata via JS -->
                 <input type="time" id="swapDesiredEnd" style="display:none;" readonly />
+                <button type="button" class="swap-time-trigger" id="swapDesiredStartBtn">
+                  <i class="fa-regular fa-clock"></i>
+                  <span id="swapDesiredStartLbl">Seleziona orario</span>
+                </button>
               </div>
               <div class="ctrl-item" style="justify-content:flex-end;">
                 <span class="control-label" style="visibility:hidden;">OK</span>
@@ -4050,8 +4140,129 @@ function buildHolidayMapForYear(year){
       refreshFindColReadiness();
     }
 
+    function initSwapPickers(){
+      const MONTHS_IT = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
+      const tutorEndMap = {'06:00':'12:00','08:00':'14:00','11:00':'17:00','12:00':'18:00','15:00':'21:00','18:00':'00:00'};
+      const SHIFTS = ['06:00','08:00','11:00','12:00','15:00','18:00'];
+
+      // ---- Calendar ----
+      let calTarget = null, calYear, calMonth;
+
+      function fmtIT(iso){
+        if(!iso) return 'Seleziona data';
+        const [y,m,d] = iso.split('-').map(Number);
+        const dow = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'][new Date(y,m-1,d).getDay()];
+        return dow+' '+String(d).padStart(2,'0')+'/'+String(m).padStart(2,'0')+'/'+y;
+      }
+
+      function syncMonthOnMyDate(iso){
+        if(!iso) return;
+        const target = document.getElementById('swapTargetDate');
+        const myYM = iso.substring(0,7);
+        const curYM = target.value ? target.value.substring(0,7) : '';
+        if(curYM !== myYM){
+          target.value = myYM+'-01';
+          document.getElementById('swapTargetDateLbl').textContent = fmtIT(myYM+'-01');
+        }
+      }
+
+      function renderCal(){
+        const grid = document.getElementById('swapCalDays');
+        document.getElementById('swapCalMonthLbl').textContent = MONTHS_IT[calMonth]+' '+calYear;
+        const curVal = document.getElementById(calTarget).value;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const firstDay = new Date(calYear, calMonth, 1);
+        const lastDay  = new Date(calYear, calMonth+1, 0);
+        const startDow = (firstDay.getDay()+6)%7;
+        grid.innerHTML = '';
+        for(let i=0;i<startDow;i++){
+          const b=document.createElement('button');b.type='button';
+          b.className='scd-btn scd-other';
+          b.textContent=new Date(calYear,calMonth,1-startDow+i).getDate();
+          grid.appendChild(b);
+        }
+        for(let d=1;d<=lastDay.getDate();d++){
+          const dt = new Date(calYear,calMonth,d);
+          const mm = String(calMonth+1).padStart(2,'0');
+          const dd = String(d).padStart(2,'0');
+          const iso = calYear+'-'+mm+'-'+dd;
+          const b=document.createElement('button');b.type='button';b.className='scd-btn';
+          b.textContent=d;
+          if(dt.getTime()===today.getTime()) b.classList.add('scd-today');
+          if(iso===curVal) b.classList.add('scd-sel');
+          b.addEventListener('click',()=>{
+            document.getElementById(calTarget).value=iso;
+            if(calTarget==='swapMyDate'){
+              document.getElementById('swapMyDateLbl').textContent=fmtIT(iso);
+              syncMonthOnMyDate(iso);
+            } else {
+              document.getElementById('swapTargetDateLbl').textContent=fmtIT(iso);
+            }
+            document.getElementById('swapCalModal').style.display='none';
+          });
+          grid.appendChild(b);
+        }
+        const rem=(7-((startDow+lastDay.getDate())%7))%7;
+        for(let i=1;i<=rem;i++){
+          const b=document.createElement('button');b.type='button';
+          b.className='scd-btn scd-other';b.textContent=i;grid.appendChild(b);
+        }
+      }
+
+      function openCal(targetId, title){
+        calTarget=targetId;
+        document.getElementById('swapCalTitle').textContent=title;
+        const existing=document.getElementById(targetId).value;
+        const d=existing?new Date(existing+'T00:00:00'):new Date();
+        calYear=d.getFullYear(); calMonth=d.getMonth();
+        renderCal();
+        document.getElementById('swapCalModal').style.display='flex';
+      }
+
+      document.getElementById('swapMyDateBtn').addEventListener('click',()=>openCal('swapMyDate','Il giorno che hai'));
+      document.getElementById('swapTargetDateBtn').addEventListener('click',()=>openCal('swapTargetDate','Il giorno che vuoi'));
+      document.getElementById('swapCalCloseBtn').addEventListener('click',()=>{ document.getElementById('swapCalModal').style.display='none'; });
+      document.getElementById('swapCalModal').addEventListener('click',function(e){ if(e.target===this) this.style.display='none'; });
+      document.getElementById('swapCalPrev').addEventListener('click',()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
+      document.getElementById('swapCalNext').addEventListener('click',()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
+
+      // ---- Time picker ----
+      let timeTarget = null;
+
+      function renderTimeGrid(curVal){
+        const grid=document.getElementById('swapTimeGrid'); grid.innerHTML='';
+        SHIFTS.forEach(start=>{
+          const end=tutorEndMap[start]||'';
+          const c=document.createElement('button');c.type='button';c.className='swap-time-card';
+          if(start===curVal) c.classList.add('stc-sel');
+          c.innerHTML=`<span class="stc-start">${start}</span><div class="stc-arrow">→ fine turno</div><span class="stc-end">${end}</span>`;
+          c.addEventListener('click',()=>{
+            document.getElementById(timeTarget).value=start;
+            document.getElementById(timeTarget).dispatchEvent(new Event('change'));
+            const lblId=timeTarget==='swapManualStart'?'swapManualStartLbl':'swapDesiredStartLbl';
+            document.getElementById(lblId).textContent=start+' → '+end;
+            document.getElementById('swapTimeModal').style.display='none';
+          });
+          grid.appendChild(c);
+        });
+      }
+
+      function openTime(targetId, title){
+        timeTarget=targetId;
+        document.getElementById('swapTimeTitle').textContent=title;
+        renderTimeGrid(document.getElementById(targetId).value);
+        document.getElementById('swapTimeModal').style.display='flex';
+      }
+
+      document.getElementById('swapManualStartBtn').addEventListener('click',()=>openTime('swapManualStart','Inizio turno'));
+      document.getElementById('swapDesiredStartBtn').addEventListener('click',()=>openTime('swapDesiredStart','Orario desiderato'));
+      document.getElementById('swapTimeCloseBtn').addEventListener('click',()=>{ document.getElementById('swapTimeModal').style.display='none'; });
+      document.getElementById('swapTimeModal').addEventListener('click',function(e){ if(e.target===this) this.style.display='none'; });
+    }
+
     function initSwap(){
       refreshSwapReadiness();
+      initSwapPickers();
 
       // Typed "Sei" segmented (modalità manuale)
       document.querySelectorAll('#swapRoleSegment button').forEach(btn => {
@@ -4069,17 +4280,6 @@ function buildHolidayMapForYear(year){
       document.getElementById('swapDesiredStart').addEventListener('change', function(){
         const end = tutorEndMap[this.value] || '';
         document.getElementById('swapDesiredEnd').value = end;
-      });
-
-      // Sincronizza mese: quando cambia "il giorno che hai", porta "il giorno che vuoi" nello stesso mese
-      document.getElementById('swapMyDate').addEventListener('change', function(){
-        if(!this.value) return;
-        const target = document.getElementById('swapTargetDate');
-        const myYM = this.value.substring(0, 7); // "YYYY-MM"
-        const curYM = target.value ? target.value.substring(0, 7) : '';
-        if(curYM !== myYM){
-          target.value = myYM + '-01';
-        }
       });
 
       const searchBtn = document.getElementById('swapSearchBtn');
@@ -4944,5 +5144,35 @@ function buildHolidayMapForYear(year){
     
     init();
   </script>
+  <!-- Custom Calendar Picker Modal -->
+  <div id="swapCalModal" class="swap-picker-overlay" style="display:none;">
+    <div class="swap-cal-popup">
+      <div class="swap-picker-head">
+        <div class="swap-picker-title"><i class="fa-regular fa-calendar"></i> <span id="swapCalTitle">Seleziona data</span></div>
+        <button type="button" class="swap-picker-close" id="swapCalCloseBtn">&#x2715;</button>
+      </div>
+      <div class="swap-cal-nav">
+        <button type="button" id="swapCalPrev">&#8249;</button>
+        <span class="swap-cal-month" id="swapCalMonthLbl"></span>
+        <button type="button" id="swapCalNext">&#8250;</button>
+      </div>
+      <div class="swap-cal-dow">
+        <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
+      </div>
+      <div class="swap-cal-days" id="swapCalDays"></div>
+    </div>
+  </div>
+
+  <!-- Custom Time Picker Modal -->
+  <div id="swapTimeModal" class="swap-picker-overlay" style="display:none;">
+    <div class="swap-time-popup">
+      <div class="swap-picker-head">
+        <div class="swap-picker-title"><i class="fa-regular fa-clock"></i> <span id="swapTimeTitle">Seleziona orario</span></div>
+        <button type="button" class="swap-picker-close" id="swapTimeCloseBtn">&#x2715;</button>
+      </div>
+      <div class="swap-time-grid" id="swapTimeGrid"></div>
+    </div>
+  </div>
+
 </body>
 </html>
