@@ -1643,7 +1643,7 @@
               </div>
               <div class="ctrl-item">
                 <span class="control-label">Settimana di riferimento</span>
-                <input type="date" id="swapWeekPicker" class="search-date-input" style="width:100%;" />
+                <input type="week" id="swapWeekPicker" class="search-date-input" style="width:100%;" />
               </div>
             </div>
             <!-- Selezione giorni della settimana -->
@@ -4087,11 +4087,14 @@ function buildHolidayMapForYear(year){
 
       // Week picker → aggiorna pillole con le date reali
       document.getElementById('swapWeekPicker').addEventListener('change', function(){
-        const val = this.value;
+        const val = this.value; // format: "2026-W10"
         if(!val) return;
-        const d = new Date(val + 'T00:00:00');
-        const dow = (d.getDay() + 6) % 7;
-        const mon = new Date(d); mon.setDate(d.getDate() - dow);
+        const [y, w] = val.split('-W').map(Number);
+        // ISO week → Monday: Jan 4 is always in week 1
+        const jan4 = new Date(y, 0, 4);
+        const dowJan4 = (jan4.getDay() + 6) % 7;
+        const mon = new Date(jan4);
+        mon.setDate(jan4.getDate() - dowJan4 + (w - 1) * 7);
         const DOW_SHORT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
         document.querySelectorAll('#swapDayPills .swap-day-pill').forEach((btn, i) => {
           const day = new Date(mon); day.setDate(mon.getDate() + i);
