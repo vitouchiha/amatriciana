@@ -3104,75 +3104,37 @@ function buildHolidayMapForYear(year){
     function buildTableViewForCfg(cfg){
       const weeks    = buildMatrixDataForConfig(cfg);
       const todayISO = isoDate(new Date());
-      const DOW_SHORT = ['Lu','Ma','Me','Gi','Ve','Sa','Do'];
-      const monthMap  = new Map();
-      weeks.forEach(w => w.days.forEach(d => {
-        const key = `${d.dateObj.getFullYear()}-${pad2(d.dateObj.getMonth()+1)}`;
-        if(!monthMap.has(key)) monthMap.set(key, []);
-        monthMap.get(key).push(d);
-      }));
+      const cols = ['Settimana', ...DAYS];
 
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
+      let html = '<div class="matrix-container" style="overflow-x:auto;"><table class="matrix-table"><thead><tr>';
+      cols.forEach(c => html += `<th>${c}</th>`);
+      html += '</tr></thead><tbody>';
 
-      monthMap.forEach((days, key) => {
-        const [y, m] = key.split('-').map(Number);
-        const monthName = MONTHS[m-1] + ' ' + y;
-        // sort by date
-        days.sort((a,b) => a.dateObj - b.dateObj);
-
-        let workDays = 0;
-        days.forEach(d => { if(!d.isRest && !d.isHoliday) workDays++; });
-        const totalMins = workDays * (cfg.durationMinutes || 0);
-        const totH = Math.floor(totalMins/60), totM = totalMins%60;
-        const oreLabel = totalMins > 0 ? `${totH}h${totM?' '+totM+'m':''}` : '—';
-
-        const card = document.createElement('div');
-        card.style.cssText = 'border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);';
-
-        const hdr = document.createElement('div');
-        hdr.style.cssText = 'font-weight:900;font-size:14px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(90deg,rgba(92,155,255,.14),rgba(123,97,255,.09));border-bottom:1px solid #e2e8f0;';
-        hdr.innerHTML = `<span style="color:#1e293b">${monthName}</span><span style="font-size:11px;font-weight:700;color:#64748b;">${workDays} giorni &middot; ${oreLabel}</span>`;
-        card.appendChild(hdr);
-
-        const table = document.createElement('table');
-        table.style.cssText = 'width:100%;border-collapse:collapse;font-size:13px;';
-
-        // thead
-        const thead = document.createElement('thead');
-        thead.innerHTML = `<tr style="background:#f8fafc;">
-          <th style="padding:7px 12px;text-align:left;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Giorno</th>
-          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Inizio</th>
-          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Fine</th>
-          <th style="padding:7px 12px;text-align:center;font-size:11px;font-weight:900;color:#64748b;border-bottom:1px solid #e2e8f0;">Note</th>
-        </tr>`;
-        table.appendChild(thead);
-
-        const tbody = document.createElement('tbody');
-        days.forEach((d, idx) => {
-          const dowIdx = (d.dateObj.getDay() + 6) % 7;
-          const label  = `${DOW_SHORT[dowIdx]} ${d.dateObj.getDate()}`;
-          const isToday= isoDate(d.dateObj) === todayISO;
-          const isRest = d.isRest, isHol = d.isHoliday;
-          const rowBg  = isRest ? 'rgba(239,68,68,.05)' : isHol ? 'rgba(239,68,68,.08)' : (idx%2===0 ? '#fff' : '#fafbfc');
-          const textCol= (isRest||isHol) ? '#ef4444' : '#1e293b';
-          const border = idx < days.length-1 ? 'border-bottom:1px solid #f1f5f9;' : '';
-          const todayStyle = isToday ? 'font-weight:900;text-decoration:underline;' : '';
-
-          const tr = document.createElement('tr');
-          tr.style.cssText = `background:${rowBg};`;
-          tr.innerHTML = `
-            <td style="padding:8px 12px;${border}font-size:13px;font-weight:700;color:${textCol};${todayStyle}">${label}</td>
-            <td style="padding:8px 12px;${border}text-align:center;font-size:13px;font-weight:700;color:${textCol};">${isRest ? 'LIBERO' : (d.start||'—')}</td>
-            <td style="padding:8px 12px;${border}text-align:center;font-size:13px;color:${textCol};">${isRest ? '' : (isHol ? d.end : (d.end||'—'))}</td>
-            <td style="padding:8px 12px;${border}text-align:center;font-size:11px;color:${textCol};">${isHol ? (d.holidayName||'Festivo') : ''}</td>
-          `;
-          tbody.appendChild(tr);
+      weeks.forEach(w => {
+        const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+        html += `<tr class="${w.inMonth ? '' : 'row-dim'}${isRowToday ? ' row-today' : ''}">`;
+        html += `<td><span class="week-label">${w.label}</span></td>`;
+        w.days.forEach(d => {
+          const isToday = isoDate(d.dateObj) === todayISO;
+          let cellHtml = `<div class="cell-stack">`;
+          if(d.holidayName){
+            cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            cellHtml += `<div class="holiday-name">${d.holidayName}</div>`;
+          } else if(d.isRest){
+            cellHtml += `<div class="pill rest">LIBERO</div>`;
+          } else {
+            cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+          }
+          if(d.isRientro) cellHtml += `<div class="cal-rientro">Rientro</div>`;
+          cellHtml += `</div>`;
+          html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
         });
-        table.appendChild(tbody);
-        card.appendChild(table);
-        wrap.appendChild(card);
+        html += '</tr>';
       });
+
+      html += '</tbody></table></div>';
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html;
       return wrap;
     }
 
