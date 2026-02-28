@@ -3112,8 +3112,8 @@ function buildHolidayMapForYear(year){
 
       weeks.forEach(w => {
         const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
-        html += `<tr class="${w.inMonth ? '' : 'row-dim'}${isRowToday ? ' row-today' : ''}">`;
-        html += `<td><span class="week-label">${w.label}</span></td>`;
+        html += `<tr class="${isRowToday ? 'row-today' : ''}">`;
+        html += `<td><span class="week-label">${weekLabel(w.weekStart)}</span></td>`;
         w.days.forEach(d => {
           const isToday = isoDate(d.dateObj) === todayISO;
           let cellHtml = `<div class="cell-stack">`;
