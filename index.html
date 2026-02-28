@@ -1343,7 +1343,13 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div class="brand-icon" aria-hidden="true">📅</div>
+        <div id="brandIconDefault" class="brand-icon" aria-hidden="true">📅</div>
+        <div class="ctrl" id="orarioColleghiCtrl" style="display:none;">
+          <button class="icon-btn" id="orarioColleghiBtn" type="button" title="Orario Colleghi" aria-label="Orario Colleghi">
+            <i class="fa-solid fa-users"></i>
+          </button>
+          <span class="label">Colleghi</span>
+        </div>
         <div class="brand-text">
           <h1>Matrice Orari</h1>
           <small id="brandSub">Seleziona ruolo e orario</small>
@@ -2825,6 +2831,11 @@ function buildHolidayMapForYear(year){
       // Add button
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.style.display = isAdmin ? '' : 'none';
+      // Brand icon / orario colleghi toggle
+      const brandIconDef = document.getElementById('brandIconDefault');
+      const orarioCtrl   = document.getElementById('orarioColleghiCtrl');
+      if(brandIconDef) brandIconDef.style.display = isAdmin ? 'none' : '';
+      if(orarioCtrl)   orarioCtrl.style.display   = isAdmin ? '' : 'none';
       // Admin-only cards
       const swapC = document.getElementById('swapCard');
       const findC = document.getElementById('findColleagueCard');
@@ -2832,7 +2843,7 @@ function buildHolidayMapForYear(year){
       const srchC = document.getElementById('searchDateCard');
       if(swapC) swapC.style.display = isAdmin ? '' : 'none';
       if(findC) findC.style.display = isAdmin ? '' : 'none';
-      if(teamC) teamC.style.display = isAdmin ? '' : 'none';
+      if(!isAdmin && teamC) teamC.style.display = 'none';
       if(srchC) srchC.style.display = isAdmin ? '' : 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
@@ -2864,6 +2875,15 @@ function buildHolidayMapForYear(year){
         }
       });
       passInput.addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('confirmAdminBtn').click(); });
+
+      document.getElementById('orarioColleghiBtn').addEventListener('click', ()=>{
+        const teamC = document.getElementById('teamCard');
+        const btn   = document.getElementById('orarioColleghiBtn');
+        if(!teamC) return;
+        const visible = teamC.style.display !== 'none' && teamC.style.display !== '';
+        teamC.style.display = visible ? 'none' : '';
+        if(btn) btn.classList.toggle('active', !visible);
+      });
 
       document.getElementById('adminLockBtn').addEventListener('click', ()=>{
         if(isAdminSession()){
