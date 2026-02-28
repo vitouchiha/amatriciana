@@ -1604,11 +1604,19 @@
                 </div>
                 <div class="ctrl-item">
                   <span class="control-label">Inizio turno</span>
-                  <input type="time" id="swapManualStart" class="search-date-input" style="width:100%;" />
+                  <select id="swapManualStart" class="hours-select" style="width:100%;">
+                    <option value="">-- orario --</option>
+                    <option value="06:00">06:00</option>
+                    <option value="08:00">08:00</option>
+                    <option value="11:00">11:00</option>
+                    <option value="12:00">12:00</option>
+                    <option value="15:00">15:00</option>
+                    <option value="18:00">18:00</option>
+                  </select>
                 </div>
                 <div class="ctrl-item">
                   <span class="control-label">Fine turno</span>
-                  <input type="time" id="swapManualEnd" class="search-date-input" style="width:100%;" />
+                  <input type="time" id="swapManualEnd" class="search-date-input" style="width:100%;" readonly />
                 </div>
               </div>
             </div>
@@ -1623,19 +1631,20 @@
                 <span class="control-label">Il giorno che vuoi</span>
                 <input type="date" id="swapTargetDate" class="search-date-input" style="width:100%;" />
               </div>
-              <div class="ctrl-item">
-                <span class="control-label">In quel giorno vuoi</span>
-                <div class="segmented" id="swapDesiredType" role="group">
-                  <button type="button" data-type="shift" aria-pressed="true">Un orario</button>
-                  <button type="button" data-type="rest" aria-pressed="false">Riposo</button>
-                </div>
-              </div>
               <div class="ctrl-item" id="swapDesiredShiftFields">
                 <span class="control-label">Orario desiderato</span>
                 <div style="display:flex;gap:6px;align-items:center;">
-                  <input type="time" id="swapDesiredStart" class="search-date-input" style="flex:1;" />
+                  <select id="swapDesiredStart" class="hours-select" style="flex:1;">
+                    <option value="">-- inizio --</option>
+                    <option value="06:00">06:00</option>
+                    <option value="08:00">08:00</option>
+                    <option value="11:00">11:00</option>
+                    <option value="12:00">12:00</option>
+                    <option value="15:00">15:00</option>
+                    <option value="18:00">18:00</option>
+                  </select>
                   <span style="opacity:0.5;font-size:12px;">–</span>
-                  <input type="time" id="swapDesiredEnd" class="search-date-input" style="flex:1;" />
+                  <input type="time" id="swapDesiredEnd" class="search-date-input" style="flex:1;" readonly />
                 </div>
               </div>
               <div class="ctrl-item" style="justify-content:flex-end;">
@@ -4036,14 +4045,15 @@ function buildHolidayMapForYear(year){
         });
       });
 
-      // Tipo desiderato: orario / riposo
-      document.querySelectorAll('#swapDesiredType button').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('#swapDesiredType button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
-          const isShift = btn.getAttribute('data-type') === 'shift';
-          const sf = document.getElementById('swapDesiredShiftFields');
-          if(sf) sf.style.display = isShift ? '' : 'none';
-        });
+      // Auto-fill fine turno +6h per inizio turno manuale
+      const tutorEndMap = { '06:00':'12:00', '08:00':'14:00', '11:00':'17:00', '12:00':'18:00', '15:00':'21:00', '18:00':'00:00' };
+      document.getElementById('swapManualStart').addEventListener('change', function(){
+        const end = tutorEndMap[this.value] || '';
+        document.getElementById('swapManualEnd').value = end;
+      });
+      document.getElementById('swapDesiredStart').addEventListener('change', function(){
+        const end = tutorEndMap[this.value] || '';
+        document.getElementById('swapDesiredEnd').value = end;
       });
 
       const searchBtn = document.getElementById('swapSearchBtn');
@@ -4053,14 +4063,13 @@ function buildHolidayMapForYear(year){
         const targetDate = document.getElementById('swapTargetDate').value; // giorno che voglio
         if(!targetDate){ toast('Attenzione', 'Inserisci il giorno che vuoi.'); return; }
 
-        const typeBtn = document.querySelector('#swapDesiredType button[aria-pressed="true"]');
-        const desiredType = typeBtn ? typeBtn.getAttribute('data-type') : 'shift';
+        const desiredType = 'shift';
 
         let desiredStart = '', desiredEnd = '';
         if(desiredType === 'shift'){
           desiredStart = document.getElementById('swapDesiredStart').value;
           desiredEnd   = document.getElementById('swapDesiredEnd').value;
-          if(!desiredStart || !desiredEnd){ toast('Attenzione', 'Inserisci l\'orario desiderato.'); return; }
+          if(!desiredStart || !desiredEnd){ toast('Attenzione', 'Seleziona l\'orario desiderato.'); return; }
         }
 
         // Recupera il mio turno nel giorno che ho (da matrice o manuale)
