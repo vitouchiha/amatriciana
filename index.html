@@ -1960,6 +1960,36 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Custom Calendar Picker Modal -->
+  <div id="swapCalModal" class="swap-picker-overlay" style="display:none;">
+    <div class="swap-cal-popup">
+      <div class="swap-picker-head">
+        <div class="swap-picker-title"><i class="fa-regular fa-calendar"></i> <span id="swapCalTitle">Seleziona data</span></div>
+        <button type="button" class="swap-picker-close" id="swapCalCloseBtn">&#x2715;</button>
+      </div>
+      <div class="swap-cal-nav">
+        <button type="button" id="swapCalPrev">&#8249;</button>
+        <span class="swap-cal-month" id="swapCalMonthLbl"></span>
+        <button type="button" id="swapCalNext">&#8250;</button>
+      </div>
+      <div class="swap-cal-dow">
+        <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
+      </div>
+      <div class="swap-cal-days" id="swapCalDays"></div>
+    </div>
+  </div>
+
+  <!-- Custom Time Picker Modal -->
+  <div id="swapTimeModal" class="swap-picker-overlay" style="display:none;">
+    <div class="swap-time-popup">
+      <div class="swap-picker-head">
+        <div class="swap-picker-title"><i class="fa-regular fa-clock"></i> <span id="swapTimeTitle">Seleziona orario</span></div>
+        <button type="button" class="swap-picker-close" id="swapTimeCloseBtn">&#x2715;</button>
+      </div>
+      <div class="swap-time-grid" id="swapTimeGrid"></div>
+    </div>
+  </div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Firebase 9 compat (app + auth + firestore) -->
@@ -5144,35 +5174,6 @@ function buildHolidayMapForYear(year){
     
     init();
   </script>
-  <!-- Custom Calendar Picker Modal -->
-  <div id="swapCalModal" class="swap-picker-overlay" style="display:none;">
-    <div class="swap-cal-popup">
-      <div class="swap-picker-head">
-        <div class="swap-picker-title"><i class="fa-regular fa-calendar"></i> <span id="swapCalTitle">Seleziona data</span></div>
-        <button type="button" class="swap-picker-close" id="swapCalCloseBtn">&#x2715;</button>
-      </div>
-      <div class="swap-cal-nav">
-        <button type="button" id="swapCalPrev">&#8249;</button>
-        <span class="swap-cal-month" id="swapCalMonthLbl"></span>
-        <button type="button" id="swapCalNext">&#8250;</button>
-      </div>
-      <div class="swap-cal-dow">
-        <span>Lun</span><span>Mar</span><span>Mer</span><span>Gio</span><span>Ven</span><span>Sab</span><span>Dom</span>
-      </div>
-      <div class="swap-cal-days" id="swapCalDays"></div>
-    </div>
-  </div>
-
-  <!-- Custom Time Picker Modal -->
-  <div id="swapTimeModal" class="swap-picker-overlay" style="display:none;">
-    <div class="swap-time-popup">
-      <div class="swap-picker-head">
-        <div class="swap-picker-title"><i class="fa-regular fa-clock"></i> <span id="swapTimeTitle">Seleziona orario</span></div>
-        <button type="button" class="swap-picker-close" id="swapTimeCloseBtn">&#x2715;</button>
-      </div>
-      <div class="swap-time-grid" id="swapTimeGrid"></div>
-    </div>
-  </div>
 
 </body>
 </html>
