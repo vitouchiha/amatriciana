@@ -1343,16 +1343,22 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand">
-        <div id="brandIconDefault" class="brand-icon" aria-hidden="true">📅</div>
+        <div class="brand-icon" aria-hidden="true">📅</div>
+        <div class="brand-text">
+          <h1>Matrice Orari</h1>
+          <small id="brandSub">Seleziona ruolo e orario</small>
+        </div>
+        <div class="ctrl" style="margin-left:6px;">
+          <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
+            <i class="fa-solid fa-lock"></i>
+          </button>
+          <span class="label" id="adminLabel">Admin</span>
+        </div>
         <div class="ctrl" id="orarioColleghiCtrl" style="display:none;">
           <button class="icon-btn" id="orarioColleghiBtn" type="button" title="Orario Colleghi" aria-label="Orario Colleghi">
             <i class="fa-solid fa-users"></i>
           </button>
           <span class="label">Colleghi</span>
-        </div>
-        <div class="brand-text">
-          <h1>Matrice Orari</h1>
-          <small id="brandSub">Seleziona ruolo e orario</small>
         </div>
       </div>
 
@@ -1376,12 +1382,6 @@
               <i class="fa-solid fa-moon" id="themeIcon"></i>
             </button>
             <span class="label" id="themeLabel">Buio</span>
-          </div>
-          <div class="ctrl">
-            <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
-              <i class="fa-solid fa-lock"></i>
-            </button>
-            <span class="label" id="adminLabel">Admin</span>
           </div>
         </div>
 
@@ -2831,11 +2831,9 @@ function buildHolidayMapForYear(year){
       // Add button
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.style.display = isAdmin ? '' : 'none';
-      // Brand icon / orario colleghi toggle
-      const brandIconDef = document.getElementById('brandIconDefault');
-      const orarioCtrl   = document.getElementById('orarioColleghiCtrl');
-      if(brandIconDef) brandIconDef.style.display = isAdmin ? 'none' : '';
-      if(orarioCtrl)   orarioCtrl.style.display   = isAdmin ? '' : 'none';
+      // Orario colleghi toggle (brand area)
+      const orarioCtrl = document.getElementById('orarioColleghiCtrl');
+      if(orarioCtrl) orarioCtrl.style.display = isAdmin ? '' : 'none';
       // Admin-only cards
       const swapC = document.getElementById('swapCard');
       const findC = document.getElementById('findColleagueCard');
