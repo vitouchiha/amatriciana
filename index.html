@@ -1635,16 +1635,10 @@
               </div>
             </div>
 
-            <!-- Riga 2: date + orario cercato + pulsante -->
-            <div class="controls-grid" style="gap:8px;">
-              <div class="ctrl-item">
-                <span class="control-label">Il giorno che hai</span>
-                <input type="date" id="swapMyDate" class="search-date-input" style="width:100%;" />
-              </div>
-              <div class="ctrl-item">
-                <span class="control-label">Settimana di riferimento</span>
-                <input type="week" id="swapWeekPicker" class="search-date-input" style="width:100%;" />
-              </div>
+            <!-- Riga 2: settimana di riferimento -->
+            <div class="ctrl-item">
+              <span class="control-label">Settimana di riferimento</span>
+              <input type="week" id="swapWeekPicker" class="search-date-input" style="max-width:220px;" />
             </div>
             <!-- Selezione giorni della settimana -->
             <div style="margin:8px 0 4px;">
@@ -4117,8 +4111,6 @@ function buildHolidayMapForYear(year){
       const searchBtn = document.getElementById('swapSearchBtn');
       if(!searchBtn) return;
       searchBtn.addEventListener('click', () => {
-        const myDate = document.getElementById('swapMyDate').value;
-
         // Raccogli i giorni selezionati dalle pillole
         const selectedPills = Array.from(document.querySelectorAll('#swapDayPills .swap-day-pill.active'));
         const targetDates = selectedPills.map(b => b.dataset.iso).filter(Boolean);
@@ -4145,7 +4137,7 @@ function buildHolidayMapForYear(year){
         targetDates.forEach(targetDate => {
           let dayMe = null;
           if(useOwnMatrix){
-            if(myDate) dayMe = getScheduleOnDate(buildCfgFromState(), myDate);
+            // nessun myDate — dayMe rimane null (scambio unilaterale)
           } else {
             const tStart = document.getElementById('swapManualStart').value;
             const tEnd   = document.getElementById('swapManualEnd').value;
@@ -4161,7 +4153,7 @@ function buildHolidayMapForYear(year){
           resultEl.appendChild(dayLabel);
           const dayContainer = document.createElement('div');
           resultEl.appendChild(dayContainer);
-          renderSwapSearch(targetDate, myDate || null, 'shift', desiredStart, desiredEnd, dayMe, myRole, dayContainer);
+          renderSwapSearch(targetDate, null, 'shift', desiredStart, desiredEnd, dayMe, myRole, dayContainer);
         });
       });
     }
