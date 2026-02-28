@@ -625,6 +625,22 @@
       font-size: 12px;
     }
     html[data-theme="dark"] .pill{background: rgba(0,0,0,0.18);}
+
+    /* Day-selection pills inside swap search */
+    .swap-day-pill{
+      font-size:11px; font-weight:800;
+      padding:4px 9px; border-radius:20px;
+      border:1.5px solid var(--stroke);
+      background:transparent; color:var(--text);
+      cursor:pointer; transition:background 0.15s, color 0.15s, border-color 0.15s;
+      white-space:nowrap;
+    }
+    .swap-day-pill.active{
+      background:var(--accent); color:#fff;
+      border-color:var(--accent);
+    }
+    #swapDayPills{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 2px;}
+
     .pill.work{border-color: rgba(92,155,255,0.40);}
     .pill.rest{border-color: rgba(245,158,11,0.40);}
     
@@ -1626,9 +1642,25 @@
                 <input type="date" id="swapMyDate" class="search-date-input" style="width:100%;" />
               </div>
               <div class="ctrl-item">
-                <span class="control-label">Il giorno che vuoi</span>
-                <input type="date" id="swapTargetDate" class="search-date-input" style="width:100%;" />
+                <span class="control-label">Settimana di riferimento</span>
+                <input type="date" id="swapWeekPicker" class="search-date-input" style="width:100%;" />
               </div>
+            </div>
+            <!-- Selezione giorni della settimana -->
+            <div style="margin:8px 0 4px;">
+              <div style="font-size:10px;font-weight:900;opacity:0.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Giorni che vuoi</div>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;" id="swapDayPills">
+                <button type="button" class="swap-day-pill" data-dow="0">Lun</button>
+                <button type="button" class="swap-day-pill" data-dow="1">Mar</button>
+                <button type="button" class="swap-day-pill" data-dow="2">Mer</button>
+                <button type="button" class="swap-day-pill" data-dow="3">Gio</button>
+                <button type="button" class="swap-day-pill" data-dow="4">Ven</button>
+                <button type="button" class="swap-day-pill" data-dow="5">Sab</button>
+                <button type="button" class="swap-day-pill" data-dow="6">Dom</button>
+                <button type="button" id="swapSelectAllDays" style="margin-left:6px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;">Tutti</button>
+              </div>
+            </div>
+            <div class="controls-grid" style="gap:8px;margin-top:4px;">
               <div class="ctrl-item" id="swapDesiredShiftFields">
                 <span class="control-label">Orario desiderato</span>
                 <select id="swapDesiredStart" class="hours-select" style="width:100%;">
@@ -3804,9 +3836,10 @@ function buildHolidayMapForYear(year){
     // desiredType/Start/End = cosa voglio in targetISO
     // dayMe      = mio turno su myISO (da matrice o manuale)
     // myRole     = mio ruolo
-    function renderSwapSearch(targetISO, myISO, desiredType, desiredStart, desiredEnd, dayMe, myRole){
-      const resultEl = document.getElementById('swapResult');
+    function renderSwapSearch(targetISO, myISO, desiredType, desiredStart, desiredEnd, dayMe, myRole, container){
+      const resultEl = container || document.getElementById('swapResult');
       if(!resultEl) return;
+      if(!container){ resultEl.innerHTML = ''; resultEl.style.display = ''; }
 
       const useOwnMatrix = !!(state.generated && state.anchorPatternIndex !== null);
       const cfgA = useOwnMatrix ? buildCfgFromState() : null;
@@ -4052,37 +4085,81 @@ function buildHolidayMapForYear(year){
         document.getElementById('swapDesiredEnd').value = end;
       });
 
+      // Week picker → aggiorna pillole con le date reali
+      document.getElementById('swapWeekPicker').addEventListener('change', function(){
+        const val = this.value;
+        if(!val) return;
+        const d = new Date(val + 'T00:00:00');
+        const dow = (d.getDay() + 6) % 7;
+        const mon = new Date(d); mon.setDate(d.getDate() - dow);
+        const DOW_SHORT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+        document.querySelectorAll('#swapDayPills .swap-day-pill').forEach((btn, i) => {
+          const day = new Date(mon); day.setDate(mon.getDate() + i);
+          const dd = String(day.getDate()).padStart(2,'0');
+          const mm = String(day.getMonth()+1).padStart(2,'0');
+          btn.dataset.iso = day.getFullYear()+'-'+mm+'-'+dd;
+          btn.textContent = DOW_SHORT[i]+' '+dd+'/'+mm;
+        });
+      });
+      // Toggle pillole giorno
+      document.querySelectorAll('#swapDayPills .swap-day-pill').forEach(btn => {
+        btn.addEventListener('click', () => btn.classList.toggle('active'));
+      });
+      document.getElementById('swapSelectAllDays').addEventListener('click', () => {
+        const pills = document.querySelectorAll('#swapDayPills .swap-day-pill');
+        const allActive = Array.from(pills).every(b => b.classList.contains('active'));
+        pills.forEach(b => b.classList.toggle('active', !allActive));
+      });
+
       const searchBtn = document.getElementById('swapSearchBtn');
       if(!searchBtn) return;
       searchBtn.addEventListener('click', () => {
-        const myDate     = document.getElementById('swapMyDate').value;     // giorno che ho (opzionale)
-        const targetDate = document.getElementById('swapTargetDate').value; // giorno che voglio
-        if(!targetDate){ toast('Attenzione', 'Inserisci il giorno che vuoi.'); return; }
+        const myDate = document.getElementById('swapMyDate').value;
 
-        const desiredType = 'shift';
+        // Raccogli i giorni selezionati dalle pillole
+        const selectedPills = Array.from(document.querySelectorAll('#swapDayPills .swap-day-pill.active'));
+        const targetDates = selectedPills.map(b => b.dataset.iso).filter(Boolean);
+        if(!targetDates.length){ toast('Attenzione', 'Seleziona almeno un giorno nella settimana.'); return; }
 
-        let desiredStart = '', desiredEnd = '';
-        if(desiredType === 'shift'){
-          desiredStart = document.getElementById('swapDesiredStart').value;
-          desiredEnd   = document.getElementById('swapDesiredEnd').value;
-          if(!desiredStart || !desiredEnd){ toast('Attenzione', 'Seleziona l\'orario desiderato.'); return; }
-        }
+        const desiredStart = document.getElementById('swapDesiredStart').value;
+        const desiredEnd   = document.getElementById('swapDesiredEnd').value;
+        if(!desiredStart || !desiredEnd){ toast('Attenzione', 'Seleziona l\'orario desiderato.'); return; }
 
-        // Recupera il mio turno nel giorno che ho (da matrice o manuale)
         const useOwnMatrix = !!(state.generated && state.anchorPatternIndex !== null);
-        let dayMe = null, myRole = null;
+        let myRole = null;
         if(useOwnMatrix){
-          if(myDate) dayMe = getScheduleOnDate(buildCfgFromState(), myDate);
           myRole = state.role;
         } else {
           const rolBtn = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
-          const tStart = document.getElementById('swapManualStart').value;
-          const tEnd   = document.getElementById('swapManualEnd').value;
           myRole = rolBtn ? rolBtn.getAttribute('data-role') : null;
-          if(tStart && tEnd) dayMe = { isRest: false, start: tStart, end: tEnd };
         }
 
-        renderSwapSearch(targetDate, myDate || null, desiredType, desiredStart, desiredEnd, dayMe, myRole);
+        const resultEl = document.getElementById('swapResult');
+        resultEl.innerHTML = '';
+        resultEl.style.display = '';
+
+        const DOW_FULL = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
+        targetDates.forEach(targetDate => {
+          let dayMe = null;
+          if(useOwnMatrix){
+            if(myDate) dayMe = getScheduleOnDate(buildCfgFromState(), myDate);
+          } else {
+            const tStart = document.getElementById('swapManualStart').value;
+            const tEnd   = document.getElementById('swapManualEnd').value;
+            if(tStart && tEnd) dayMe = { isRest: false, start: tStart, end: tEnd };
+          }
+          const dObj = new Date(targetDate+'T00:00:00');
+          const dowIdx = (dObj.getDay()+6)%7;
+          const dd = String(dObj.getDate()).padStart(2,'0');
+          const mm = String(dObj.getMonth()+1).padStart(2,'0');
+          const dayLabel = document.createElement('div');
+          dayLabel.style.cssText = 'font-size:12px;font-weight:900;opacity:0.55;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--stroke);';
+          dayLabel.textContent = DOW_FULL[dowIdx]+' '+dd+'/'+mm;
+          resultEl.appendChild(dayLabel);
+          const dayContainer = document.createElement('div');
+          resultEl.appendChild(dayContainer);
+          renderSwapSearch(targetDate, myDate || null, 'shift', desiredStart, desiredEnd, dayMe, myRole, dayContainer);
+        });
       });
     }
 
