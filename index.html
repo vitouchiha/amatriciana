@@ -1384,7 +1384,7 @@
         <!-- Gruppo export -->
         <div class="tbtn-group">
           <div class="ctrl">
-            <button class="icon-btn btn-save" id="saveTopBtn" type="button" aria-label="Salva PNG" disabled>
+            <button class="icon-btn btn-save" id="saveTopBtn" type="button" aria-label="Salva PDF" disabled>
               <i class="fa-solid fa-download"></i>
             </button>
             <span class="label">Salva</span>
@@ -1701,7 +1701,7 @@
               <i class="fa-solid fa-table-list"></i>
             </button>
           </div>
-          <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PNG" title="Salva PNG">
+          <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PDF" title="Salva PDF">
             <i class="fa-solid fa-download"></i>
           </button>
           <button class="icon-btn" id="closeColleagueMatrixModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
@@ -1835,6 +1835,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <!-- Firebase 9 compat (app + auth + firestore) -->
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -3313,9 +3314,10 @@ function buildHolidayMapForYear(year){
         document.body.appendChild(node);
         const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale: Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
         node.remove();
-        const blob = await new Promise(r => canvas.toBlob(r, 'image/png', 1.0));
-        _downloadBlob(blob, `matrice-${(_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-')}.png`);
-        toast('Salvata!', `matrice-${_viewedColleague.name}.png`);
+        const blob = canvasToPdfBlob(canvas);
+        const safeName = (_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-');
+        _downloadBlob(blob, `matrice-${safeName}.pdf`);
+        toast('Salvata!', `matrice-${_viewedColleague.name}.pdf`);
       } catch(e){
         toast('Errore', 'Export non riuscito.');
       } finally {
@@ -4570,11 +4572,23 @@ function buildHolidayMapForYear(year){
       return root;
     }
 
-    async function exportPngBlob(){
+    // Converte un canvas html2canvas in un Blob PDF (jsPDF)
+    function canvasToPdfBlob(canvas){
+      const { jsPDF } = window.jspdf;
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pxToMm = 0.264583; // 1px @ 96dpi = 0.264583mm
+      const imgW = canvas.width  * pxToMm;
+      const imgH = canvas.height * pxToMm;
+      const orientation = imgW >= imgH ? 'landscape' : 'portrait';
+      const pdf = new jsPDF({ orientation, unit: 'mm', format: [imgW, imgH], compress: true });
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST');
+      return pdf.output('blob');
+    }
+
+    async function exportPdfBlob(){
       const node = buildExportNode();
       if(!node) throw new Error('Nessuna matrice');
 
-      // Temporarily attach offscreen
       node.style.position = 'fixed';
       node.style.left = '-99999px';
       node.style.top = '0';
@@ -4589,7 +4603,7 @@ function buildHolidayMapForYear(year){
           scrollX: 0,
           scrollY: 0,
         });
-        return await new Promise((resolve) => canvas.toBlob(resolve, 'image/png', 1.0));
+        return canvasToPdfBlob(canvas);
       } finally {
         node.remove();
       }
@@ -4600,11 +4614,11 @@ function buildHolidayMapForYear(year){
       const btn = document.getElementById('saveTopBtn');
       if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
-        const blob = await exportPngBlob();
+        const blob = await exportPdfBlob();
         if(!blob) throw new Error('Export fallito');
         const fileLabel = { table: 'tabella', cards: 'schede', calendar: 'calendario' }[state.viewMode] || 'vista';
-        _downloadBlob(blob, `matrice-orari-${fileLabel}.png`);
-        toast('Salvata!', `matrice-orari-${fileLabel}.png`);
+        _downloadBlob(blob, `matrice-orari-${fileLabel}.pdf`);
+        toast('Salvata!', `matrice-orari-${fileLabel}.pdf`);
       } catch(err){
         toast('Errore', 'Impossibile esportare.');
       } finally {
@@ -4617,19 +4631,17 @@ function buildHolidayMapForYear(year){
       const btn = document.getElementById('shareTopBtn');
       if(btn){ const i = btn.querySelector('i'); if(i) i.className = 'fa-solid fa-spinner fa-spin'; }
       try{
-        const blob = await exportPngBlob();
+        const blob = await exportPdfBlob();
         if(!blob) throw new Error('Export fallito');
         const fileLabel = { table: 'tabella', cards: 'schede', calendar: 'calendario' }[state.viewMode] || 'vista';
-        const fileName = `matrice-orari-${fileLabel}.png`;
-        // Usa octet-stream per far trattare il file come documento (evita compressione immagini su WhatsApp)
-        const file = new File([blob], fileName, { type: 'application/octet-stream' });
+        const fileName = `matrice-orari-${fileLabel}.pdf`;
+        const file = new File([blob], fileName, { type: 'application/pdf' });
 
         if(navigator.share && navigator.canShare && navigator.canShare({ files: [file] })){
           await navigator.share({ title: 'Matrice Orari', files: [file] });
         } else {
-          // Fallback: download diretto
           _downloadBlob(blob, fileName);
-          toast('Salvata', 'File scaricato — condividilo in WhatsApp come Documento per qualità massima.');
+          toast('Salvata', 'File scaricato.');
         }
       } catch(err){
         if(err && err.name !== 'AbortError'){
