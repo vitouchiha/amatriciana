@@ -1635,23 +1635,15 @@
               </div>
             </div>
 
-            <!-- Riga 2: settimana di riferimento -->
-            <div class="ctrl-item">
-              <span class="control-label">Settimana di riferimento</span>
-              <input type="week" id="swapWeekPicker" class="search-date-input" style="max-width:220px;" />
-            </div>
-            <!-- Selezione giorni della settimana -->
-            <div style="margin:8px 0 4px;">
-              <div style="font-size:10px;font-weight:900;opacity:0.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Giorni che vuoi</div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;" id="swapDayPills">
-                <button type="button" class="swap-day-pill" data-dow="0">Lun</button>
-                <button type="button" class="swap-day-pill" data-dow="1">Mar</button>
-                <button type="button" class="swap-day-pill" data-dow="2">Mer</button>
-                <button type="button" class="swap-day-pill" data-dow="3">Gio</button>
-                <button type="button" class="swap-day-pill" data-dow="4">Ven</button>
-                <button type="button" class="swap-day-pill" data-dow="5">Sab</button>
-                <button type="button" class="swap-day-pill" data-dow="6">Dom</button>
-                <button type="button" id="swapSelectAllDays" style="margin-left:6px;font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;border:1.5px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;">Tutti</button>
+            <!-- Riga 2: date -->
+            <div class="controls-grid" style="gap:8px;">
+              <div class="ctrl-item">
+                <span class="control-label">Il giorno che hai</span>
+                <input type="date" id="swapMyDate" class="search-date-input" style="width:100%;" />
+              </div>
+              <div class="ctrl-item">
+                <span class="control-label">Il giorno che vuoi</span>
+                <input type="date" id="swapTargetDate" class="search-date-input" style="width:100%;" />
               </div>
             </div>
             <div class="controls-grid" style="gap:8px;margin-top:4px;">
@@ -4079,42 +4071,12 @@ function buildHolidayMapForYear(year){
         document.getElementById('swapDesiredEnd').value = end;
       });
 
-      // Week picker → aggiorna pillole con le date reali
-      document.getElementById('swapWeekPicker').addEventListener('change', function(){
-        const val = this.value; // format: "2026-W10"
-        if(!val) return;
-        const [y, w] = val.split('-W').map(Number);
-        // ISO week → Monday: Jan 4 is always in week 1
-        const jan4 = new Date(y, 0, 4);
-        const dowJan4 = (jan4.getDay() + 6) % 7;
-        const mon = new Date(jan4);
-        mon.setDate(jan4.getDate() - dowJan4 + (w - 1) * 7);
-        const DOW_SHORT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
-        document.querySelectorAll('#swapDayPills .swap-day-pill').forEach((btn, i) => {
-          const day = new Date(mon); day.setDate(mon.getDate() + i);
-          const dd = String(day.getDate()).padStart(2,'0');
-          const mm = String(day.getMonth()+1).padStart(2,'0');
-          btn.dataset.iso = day.getFullYear()+'-'+mm+'-'+dd;
-          btn.textContent = DOW_SHORT[i]+' '+dd+'/'+mm;
-        });
-      });
-      // Toggle pillole giorno
-      document.querySelectorAll('#swapDayPills .swap-day-pill').forEach(btn => {
-        btn.addEventListener('click', () => btn.classList.toggle('active'));
-      });
-      document.getElementById('swapSelectAllDays').addEventListener('click', () => {
-        const pills = document.querySelectorAll('#swapDayPills .swap-day-pill');
-        const allActive = Array.from(pills).every(b => b.classList.contains('active'));
-        pills.forEach(b => b.classList.toggle('active', !allActive));
-      });
-
       const searchBtn = document.getElementById('swapSearchBtn');
       if(!searchBtn) return;
       searchBtn.addEventListener('click', () => {
-        // Raccogli i giorni selezionati dalle pillole
-        const selectedPills = Array.from(document.querySelectorAll('#swapDayPills .swap-day-pill.active'));
-        const targetDates = selectedPills.map(b => b.dataset.iso).filter(Boolean);
-        if(!targetDates.length){ toast('Attenzione', 'Seleziona almeno un giorno nella settimana.'); return; }
+        const myDate     = document.getElementById('swapMyDate').value;
+        const targetDate = document.getElementById('swapTargetDate').value;
+        if(!targetDate){ toast('Attenzione', 'Inserisci il giorno che vuoi.'); return; }
 
         const desiredStart = document.getElementById('swapDesiredStart').value;
         const desiredEnd   = document.getElementById('swapDesiredEnd').value;
@@ -4129,32 +4091,16 @@ function buildHolidayMapForYear(year){
           myRole = rolBtn ? rolBtn.getAttribute('data-role') : null;
         }
 
-        const resultEl = document.getElementById('swapResult');
-        resultEl.innerHTML = '';
-        resultEl.style.display = '';
+        let dayMe = null;
+        if(useOwnMatrix){
+          if(myDate) dayMe = getScheduleOnDate(buildCfgFromState(), myDate);
+        } else {
+          const tStart = document.getElementById('swapManualStart').value;
+          const tEnd   = document.getElementById('swapManualEnd').value;
+          if(tStart && tEnd) dayMe = { isRest: false, start: tStart, end: tEnd };
+        }
 
-        const DOW_FULL = ['Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato','Domenica'];
-        targetDates.forEach(targetDate => {
-          let dayMe = null;
-          if(useOwnMatrix){
-            // nessun myDate — dayMe rimane null (scambio unilaterale)
-          } else {
-            const tStart = document.getElementById('swapManualStart').value;
-            const tEnd   = document.getElementById('swapManualEnd').value;
-            if(tStart && tEnd) dayMe = { isRest: false, start: tStart, end: tEnd };
-          }
-          const dObj = new Date(targetDate+'T00:00:00');
-          const dowIdx = (dObj.getDay()+6)%7;
-          const dd = String(dObj.getDate()).padStart(2,'0');
-          const mm = String(dObj.getMonth()+1).padStart(2,'0');
-          const dayLabel = document.createElement('div');
-          dayLabel.style.cssText = 'font-size:12px;font-weight:900;opacity:0.55;text-transform:uppercase;letter-spacing:.05em;margin:14px 0 4px;padding-bottom:4px;border-bottom:1px solid var(--stroke);';
-          dayLabel.textContent = DOW_FULL[dowIdx]+' '+dd+'/'+mm;
-          resultEl.appendChild(dayLabel);
-          const dayContainer = document.createElement('div');
-          resultEl.appendChild(dayContainer);
-          renderSwapSearch(targetDate, null, 'shift', desiredStart, desiredEnd, dayMe, myRole, dayContainer);
-        });
+        renderSwapSearch(targetDate, myDate || null, 'shift', desiredStart, desiredEnd, dayMe, myRole);
       });
     }
 
