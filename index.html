@@ -2889,7 +2889,7 @@ function buildHolidayMapForYear(year){
         const srchC = document.getElementById('searchDateCard');
         const btn   = document.getElementById('cercaOrarioBtn');
         const cards = [swapC, findC, srchC].filter(Boolean);
-        const visible = cards.some(c => c.style.display !== 'none' && c.style.display !== '');
+        const visible = cards.some(c => c.style.display !== 'none');
         cards.forEach(c => c.style.display = visible ? 'none' : '');
         if(btn) btn.classList.toggle('active', !visible);
       });
@@ -2898,7 +2898,7 @@ function buildHolidayMapForYear(year){
         const teamC = document.getElementById('teamCard');
         const btn   = document.getElementById('orarioColleghiBtn');
         if(!teamC) return;
-        const visible = teamC.style.display !== 'none' && teamC.style.display !== '';
+        const visible = teamC.style.display !== 'none';
         teamC.style.display = visible ? 'none' : '';
         if(btn) btn.classList.toggle('active', !visible);
       });
