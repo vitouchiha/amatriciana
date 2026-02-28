@@ -1591,9 +1591,9 @@
           </div>
           <div id="swapForm" style="display:none;">
 
-            <!-- Sezione: il tuo turno quel giorno (auto da matrice o manuale) -->
-            <div id="swapManualSection" style="display:none; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:var(--ctrl-bg);">
-              <div style="font-size:11px; font-weight:700; opacity:0.55; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px;">Il tuo turno nel giorno che hai</div>
+            <!-- Riga 1: il tuo turno quel giorno -->
+            <div id="swapManualSection" style="display:none; margin-bottom:10px;">
+              <div style="font-size:10px; font-weight:900; opacity:0.5; text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">Il tuo turno nel giorno che hai</div>
               <div class="controls-grid" style="gap:8px;">
                 <div class="ctrl-item">
                   <span class="control-label">Sei</span>
@@ -1614,14 +1614,12 @@
                     <option value="18:00">18:00</option>
                   </select>
                 </div>
-                <div class="ctrl-item">
-                  <span class="control-label">Fine turno</span>
-                  <input type="time" id="swapManualEnd" class="search-date-input" style="width:100%;" readonly />
-                </div>
+                <!-- Fine turno nascosta, popolata via JS -->
+                <input type="time" id="swapManualEnd" style="display:none;" readonly />
               </div>
             </div>
 
-            <!-- Date e turno desiderato -->
+            <!-- Riga 2: date + orario cercato + pulsante -->
             <div class="controls-grid" style="gap:8px;">
               <div class="ctrl-item">
                 <span class="control-label">Il giorno che hai</span>
@@ -1633,19 +1631,17 @@
               </div>
               <div class="ctrl-item" id="swapDesiredShiftFields">
                 <span class="control-label">Orario desiderato</span>
-                <div style="display:flex;gap:6px;align-items:center;">
-                  <select id="swapDesiredStart" class="hours-select" style="flex:1;">
-                    <option value="">-- inizio --</option>
-                    <option value="06:00">06:00</option>
-                    <option value="08:00">08:00</option>
-                    <option value="11:00">11:00</option>
-                    <option value="12:00">12:00</option>
-                    <option value="15:00">15:00</option>
-                    <option value="18:00">18:00</option>
-                  </select>
-                  <span style="opacity:0.5;font-size:12px;">–</span>
-                  <input type="time" id="swapDesiredEnd" class="search-date-input" style="flex:1;" readonly />
-                </div>
+                <select id="swapDesiredStart" class="hours-select" style="width:100%;">
+                  <option value="">-- orario --</option>
+                  <option value="06:00">06:00</option>
+                  <option value="08:00">08:00</option>
+                  <option value="11:00">11:00</option>
+                  <option value="12:00">12:00</option>
+                  <option value="15:00">15:00</option>
+                  <option value="18:00">18:00</option>
+                </select>
+                <!-- Fine desiderata nascosta, popolata via JS -->
+                <input type="time" id="swapDesiredEnd" style="display:none;" readonly />
               </div>
               <div class="ctrl-item" style="justify-content:flex-end;">
                 <span class="control-label" style="visibility:hidden;">OK</span>
