@@ -1874,15 +1874,22 @@
             <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Gemini API Key</div>
             <input type="password" id="scanApiKeyInput" placeholder="AIzaSy..." autocomplete="off"
               style="width:100%;box-sizing:border-box;background:none;border:none;outline:none;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;" />
+            <div id="scanApiKeySet" style="display:none;font-size:13px;font-weight:700;color:var(--accent);"><i class="fa-solid fa-circle-check" style="margin-right:5px;"></i>Chiave configurata</div>
           </div>
           <button class="icon-btn btn-save" id="scanSaveKeyBtn" type="button" title="Salva chiave"><i class="fa-solid fa-floppy-disk"></i></button>
+          <button class="icon-btn" id="scanClearKeyBtn" type="button" title="Rimuovi chiave" style="display:none;color:#ef4444;"><i class="fa-solid fa-trash"></i></button>
         </div>
         <!-- Drop zone -->
         <div id="scanDropZone" class="scan-drop">
           <input type="file" id="scanFileInput" accept="image/*" style="display:none;" />
+          <input type="file" id="scanCameraInput" accept="image/*" capture="environment" style="display:none;" />
           <i class="fa-solid fa-image" style="font-size:30px;color:var(--accent);margin-bottom:10px;display:block;"></i>
           <div style="font-weight:800;font-size:14px;">Carica la foto del turno</div>
-          <div style="font-size:12px;opacity:0.5;margin-top:4px;">Trascina qui o clicca per selezionare</div>
+          <div style="font-size:12px;opacity:0.5;margin-top:4px;">Trascina qui oppure scegli</div>
+          <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;">
+            <button type="button" id="scanGalleryBtn" onclick="event.stopPropagation();document.getElementById('scanFileInput').click();" style="display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:20px;border:1.5px solid var(--stroke);background:var(--bg);font-size:12px;font-weight:800;color:var(--text);cursor:pointer;"><i class="fa-solid fa-folder-open" style="color:var(--accent);"></i>Galleria</button>
+            <button type="button" id="scanCameraBtn" onclick="event.stopPropagation();document.getElementById('scanCameraInput').click();" style="display:flex;align-items:center;gap:7px;padding:8px 16px;border-radius:20px;border:1.5px solid var(--stroke);background:var(--bg);font-size:12px;font-weight:800;color:var(--text);cursor:pointer;"><i class="fa-solid fa-camera" style="color:var(--accent);"></i>Fotocamera</button>
+          </div>
         </div>
         <!-- Preview -->
         <div id="scanPreviewWrap" style="display:none;margin-top:10px;position:relative;">
@@ -4863,14 +4870,40 @@ function buildHolidayMapForYear(year){
       document.getElementById('scanModal').addEventListener('click', e=>{ if(e.target.id === 'scanModal') closeModal('scanModal'); });
 
       const keyInp = document.getElementById('scanApiKeyInput');
-      if(_geminiApiKey) keyInp.value = _geminiApiKey;
+      const keySetLbl = document.getElementById('scanApiKeySet');
+      const saveKeyBtn = document.getElementById('scanSaveKeyBtn');
+      const clearKeyBtn = document.getElementById('scanClearKeyBtn');
 
-      document.getElementById('scanSaveKeyBtn').addEventListener('click', ()=>{
+      function _updateKeyUI(){
+        if(_geminiApiKey){
+          keyInp.style.display = 'none';
+          keySetLbl.style.display = '';
+          saveKeyBtn.style.display = 'none';
+          clearKeyBtn.style.display = '';
+        } else {
+          keyInp.style.display = '';
+          keySetLbl.style.display = 'none';
+          saveKeyBtn.style.display = '';
+          clearKeyBtn.style.display = 'none';
+          keyInp.value = '';
+        }
+      }
+      _updateKeyUI();
+
+      saveKeyBtn.addEventListener('click', ()=>{
         const v = keyInp.value.trim();
         if(!v){ toast('Attenzione', 'Inserisci la API key.'); return; }
         _geminiApiKey = v;
         fbSave();
         toast('Salvata', 'Gemini API key salvata.');
+        _updateKeyUI();
+      });
+
+      clearKeyBtn.addEventListener('click', ()=>{
+        _geminiApiKey = '';
+        fbSave();
+        toast('Rimossa', 'API key rimossa.');
+        _updateKeyUI();
       });
 
       let _scanFile = null;
@@ -4888,6 +4921,7 @@ function buildHolidayMapForYear(year){
 
       const dropZone = document.getElementById('scanDropZone');
       const fileInput = document.getElementById('scanFileInput');
+      const cameraInput = document.getElementById('scanCameraInput');
 
       dropZone.addEventListener('click', ()=> fileInput.click());
       dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -4900,6 +4934,10 @@ function buildHolidayMapForYear(year){
       fileInput.addEventListener('change', ()=>{
         if(fileInput.files[0]) handleFile(fileInput.files[0]);
         fileInput.value = '';
+      });
+      cameraInput.addEventListener('change', ()=>{
+        if(cameraInput.files[0]) handleFile(cameraInput.files[0]);
+        cameraInput.value = '';
       });
       document.getElementById('scanRemoveImg').addEventListener('click', e=>{ e.stopPropagation(); resetScan(); });
 
@@ -4914,8 +4952,8 @@ function buildHolidayMapForYear(year){
 
       document.getElementById('scanAnalyzeBtn').addEventListener('click', async ()=>{
         if(!_scanFile){ toast('Attenzione', "Carica prima un'immagine."); return; }
-        const key = keyInp.value.trim() || _geminiApiKey;
-        if(!key){ toast('Attenzione', 'Inserisci la Gemini API key.'); return; }
+        const key = _geminiApiKey || keyInp.value.trim();
+        if(!key){ toast('Attenzione', 'Inserisci prima la Gemini API key.'); return; }
         _geminiApiKey = key;
         const btn = document.getElementById('scanAnalyzeBtn');
         const oldHtml = btn.innerHTML;
