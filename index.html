@@ -5079,19 +5079,22 @@ function buildHolidayMapForYear(year){
 
       const dateXs = dateWords.map(cx);
 
-      // Tutti gli orari non-zero
-      const timeWords = words.filter(w => parseT(w.text.trim()) && parseT(w.text.trim()) !== '00:00');
+      // Tutti gli orari (inclusi 0.00) — servono per marcare colonne occupate
+      const allTimeWords = words.filter(w => parseT(w.text.trim()));
+      // Solo gli orari non-zero — servono per calcolare orario di inizio
+      const timeWords = allTimeWords.filter(w => parseT(w.text.trim()) !== '00:00');
       if(timeWords.length === 0) throw new Error("Nessun orario trovato. Usa un'immagine più nitida.");
 
-      // Orario più frequente = inizio turno
+      // Orario più frequente (non-zero) = inizio turno
       const freq = {};
       timeWords.forEach(w => { const t = parseT(w.text.trim()); freq[t] = (freq[t]||0)+1; });
       const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
 
-      // Assegna ogni orario alla colonna più vicina (nearest-column)
+      // Assegna TUTTI gli orari (anche 0.00) alla colonna più vicina — così colonne lavorative
+      // vengono marcate anche quando l'orario principale finisce nella colonna sbagliata
       const workColNums = new Set();
       const _debugAssignments = [];
-      timeWords.forEach(w => {
+      allTimeWords.forEach(w => {
         const x = cx(w);
         let bestI = 0, bestDist = Infinity;
         dateXs.forEach((dx, i) => { const d = Math.abs(x - dx); if(d < bestDist){ bestDist=d; bestI=i; } });
