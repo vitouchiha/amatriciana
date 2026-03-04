@@ -2094,6 +2094,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
   <!-- Rientri Manager Modal -->
   <div id="rientriModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="rientriModalTitle">
     <div class="modal-sheet modal-sheet-scroll" style="max-width:440px;">
@@ -4987,16 +4988,13 @@ function buildHolidayMapForYear(year){
 
       document.getElementById('scanAnalyzeBtn').addEventListener('click', async ()=>{
         if(!_scanFile){ toast('Attenzione', "Carica prima un'immagine."); return; }
-        const key = _aiApiKey || keyInp.value.trim();
-        if(!key){ toast('Attenzione', 'Inserisci prima la API key.'); return; }
         const btn = document.getElementById('scanAnalyzeBtn');
         const oldHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Analisi in corso...';
         btn.disabled = true;
         try{
-          const team = document.getElementById('scanTeamInput').value.trim() || 'N/A';
-          const base64 = await fileToBase64(_scanFile);
-          const extracted = await callGemini(base64, _scanFile.type, key, _scanRole, team);
+          const extracted = await analyzeWithOCR(_scanFile, _scanRole, (pct)=>{
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Lettura immagine ${pct}%...`;
+          });
           _scanResult = matchScheduleToPattern(extracted.giorni || [], _scanRole);
           showScanResult(_scanResult, extracted.giorni || []);
         } catch(err){
@@ -5026,57 +5024,47 @@ function buildHolidayMapForYear(year){
       });
     }
 
-    async function fileToBase64(file){
-      return new Promise((res, rej)=>{
-        const reader = new FileReader();
-        reader.onload = e => res(e.target.result.split(',')[1]);
-        reader.onerror = rej;
-        reader.readAsDataURL(file);
-      });
-    }
-
-    async function callGemini(base64Image, mimeType, apiKey, role, team){
-      const MODELS = [
-        'gemini-2.0-flash-lite',   // free: 30 RPM
-        'gemini-2.0-flash',        // free: 15 RPM
-        'gemini-2.0-flash-exp',    // experimental: quota separata
-        'gemini-1.5-flash',        // fallback
-      ];
-      const roleHint = role === 'tutor' ? 'Tutor' : 'Dipendente';
-      const teamHint = (team && team !== 'N/A') ? ` del team "${team}"` : '';
-      const prompt = `Analizza questa immagine di un turno di lavoro settimanale. L'utente è un ${roleHint}${teamHint}.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
-      const body = {
-        contents:[{ parts:[
-          { text: prompt },
-          { inline_data:{ mime_type: mimeType, data: base64Image } }
-        ]}]
-      };
-      let lastErr = null;
-      for(const model of MODELS){
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-        try{
-          const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-          if(resp.status === 429 || resp.status === 404){
-            const errText = await resp.text().catch(()=>'');
-            lastErr = new Error(`${model}: ${resp.status} – provo modello successivo`);
-            await new Promise(r => setTimeout(r, 800));
-            continue;
+    async function analyzeWithOCR(imageFile, role, onProgress){
+      if(typeof Tesseract === 'undefined') throw new Error('Tesseract.js non ancora caricato. Riprova tra qualche secondo.');
+      const { data } = await Tesseract.recognize(imageFile, 'ita+eng', {
+        logger: m => {
+          if(m.status === 'recognizing text' && onProgress){
+            onProgress(Math.round(m.progress * 100));
           }
-          if(!resp.ok){
-            const errText = await resp.text().catch(()=>'');
-            throw new Error(`Errore AI ${resp.status}: ${errText.slice(0,160)}`);
-          }
-          const data = await resp.json();
-          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          const clean = text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-          try{ return JSON.parse(clean); }
-          catch(e){ throw new Error("Risposta non valida. Usa un'immagine più chiara."); }
-        } catch(err){
-          if(err.message.includes('Risposta non valida') || err.message.includes('Errore AI')) throw err;
-          lastErr = err;
         }
-      }
-      throw new Error('Quota esaurita su tutti i modelli. Riprova tra qualche minuto.');
+      });
+      const text = data.text;
+      // Estrai tutti gli orari formato HH.MM / H.MM / HH:MM / H:MM
+      const timeRe = /\b(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])\b/g;
+      const allTimes = [...text.matchAll(timeRe)]
+        .map(m => `${m[1].padStart(2,'0')}:${m[2]}`)
+        .filter(t => t !== '00:00' && t !== '24:00');
+      if(allTimes.length === 0) throw new Error("Nessun orario trovato nell'immagine. Usa un'immagine più nitida e ben illuminata.");
+      // Orario più frequente = inizio turno
+      const freq = {};
+      allTimes.forEach(t => freq[t] = (freq[t]||0)+1);
+      const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+      // Prova a rilevare giorni di riposo da nomi giorno vicini a R/RIP/OFF
+      const DOW_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+      const restDays = [];
+      const lines = text.split('\n');
+      lines.forEach(line => {
+        DOW_IT.forEach(d => {
+          if(new RegExp(d,'i').test(line)){
+            const hasTime = /\b(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])\b/.test(line);
+            if(!hasTime || /\bR\b|\bRIP|\bOFF|RIPOSO/i.test(line)){
+              if(!restDays.includes(d)) restDays.push(d);
+            }
+          }
+        });
+      });
+      // Costruisci array giorni
+      const giorni = DOW_IT.map(d => (
+        restDays.includes(d)
+          ? { giorno: d, riposo: true }
+          : { giorno: d, riposo: false, inizio: mainStart, fine: '00:00' }
+      ));
+      return { giorni };
     }
 
     function matchScheduleToPattern(giorni, forcedRole){
