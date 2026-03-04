@@ -4996,7 +4996,7 @@ function buildHolidayMapForYear(year){
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Lettura immagine ${pct}%...`;
           });
           _scanResult = matchScheduleToPattern(extracted.giorni || [], _scanRole);
-          showScanResult(_scanResult, extracted.giorni || []);
+          showScanResult(_scanResult, extracted.giorni || [], extracted.weekLabel || '');
         } catch(err){
           const wrap = document.getElementById('scanResultWrap');
           wrap.style.display = '';
@@ -5035,72 +5035,105 @@ function buildHolidayMapForYear(year){
 
       const DOW_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
       const DOW_MAP = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+      const MONTHS_IT = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
       const parseT = s => {
         const m = s.match(/^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/);
         return m ? `${m[1].padStart(2,'0')}:${m[2]}` : null;
       };
 
-      const words = (data.words||[]).filter(w => w.confidence > 15 && w.text.trim().length >= 2);
+      const words = (data.words||[]).filter(w => w.confidence > 10 && w.text.trim().length >= 2);
       const cx = w => (w.bbox.x0 + w.bbox.x1) / 2;
       const cy = w => (w.bbox.y0 + w.bbox.y1) / 2;
 
-      // Trova tutti i numeri-data nella riga superiore
+      // Trova date nella riga superiore (top 45% dell'immagine)
       const maxY = Math.max(...words.map(w => w.bbox.y1), 400);
-      const topThr = maxY * 0.38;
-      const dateWords = words
+      const topThr = maxY * 0.45;
+      let dateWords = words
         .filter(w => /^\d{1,2}$/.test(w.text.trim()) && +w.text >= 1 && +w.text <= 31 && cy(w) < topThr)
         .sort((a,b) => cx(a) - cx(b))
-        // Rimuovi duplicati X (stessa data rilevata 2 volte vicino)
         .filter((w,i,arr) => i===0 || cx(w) - cx(arr[i-1]) > 15);
 
-      if(dateWords.length < 2) throw new Error("Impossibile rilevare le colonne-data. Usa un'immagine più nitida con le date ben visibili.");
+      if(dateWords.length < 2) throw new Error("Impossibile rilevare le colonne-data. Avvicina la fotocamera e assicurati che le date siano visibili.");
 
-      // Costruisce zone di Voronoi: ogni colonna va da midpoint sinistro a midpoint destro
+      // Estrapolazione: se abbiamo date consecutive mancanti (coperte da UI), aggiungile sintetiche
+      const nums = dateWords.map(d => +d.text);
+      const gaps = nums.slice(1).map((n,i) => n - nums[i]);
+      const allConsec = gaps.every(g => g === 1);
+      if(allConsec && nums.length < 7){
+        const avgGapPx = dateWords.length >= 2
+          ? (cx(dateWords[dateWords.length-1]) - cx(dateWords[0])) / (dateWords.length - 1)
+          : 80;
+        const lastX = cx(dateWords[dateWords.length-1]);
+        const lastNum = nums[nums.length-1];
+        const needed = 7 - nums.length;
+        for(let i=1; i<=needed; i++){
+          const synth = {
+            text: String(lastNum + i),
+            confidence: 0,
+            bbox: { x0: lastX + avgGapPx*i - 15, x1: lastX + avgGapPx*i + 15, y0: 0, y1: topThr * 0.5},
+            _synthetic: true
+          };
+          dateWords.push(synth);
+        }
+      }
+
       const dateXs = dateWords.map(cx);
-      const zones = dateXs.map((x, i) => {
-        const left  = i === 0 ? -Infinity : (x + dateXs[i-1]) / 2;
-        const right = i === dateXs.length-1 ? Infinity : (x + dateXs[i+1]) / 2;
-        return { num: +dateWords[i].text, left, right };
-      });
 
-      // Tutti gli orari non-zero trovati nel documento
+      // Tutti gli orari non-zero
       const timeWords = words.filter(w => parseT(w.text.trim()) && parseT(w.text.trim()) !== '00:00');
       if(timeWords.length === 0) throw new Error("Nessun orario trovato. Usa un'immagine più nitida.");
 
-      // Orario inizio più frequente
+      // Orario più frequente = inizio turno
       const freq = {};
-      timeWords.forEach(w => { const t=parseT(w.text.trim()); freq[t]=(freq[t]||0)+1; });
+      timeWords.forEach(w => { const t = parseT(w.text.trim()); freq[t] = (freq[t]||0)+1; });
       const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
 
-      // Assegna ogni orario alla sua zona-colonna
-      const workZoneNums = new Set();
+      // Assegna ogni orario alla colonna più vicina (nearest-column)
+      const workColNums = new Set();
       timeWords.forEach(w => {
         const x = cx(w);
-        const zone = zones.find(z => x >= z.left && x < z.right);
-        if(zone) workZoneNums.add(zone.num);
+        let bestI = 0, bestDist = Infinity;
+        dateXs.forEach((dx, i) => { const d = Math.abs(x - dx); if(d < bestDist){ bestDist=d; bestI=i; } });
+        workColNums.add(+dateWords[bestI].text);
       });
 
-      // Date senza orari = riposo
-      const restNums = zones.map(z=>z.num).filter(n => !workZoneNums.has(n));
+      // Colonne senza orari = riposo
+      const allNums = dateWords.map(d => +d.text);
+      const restNums = allNums.filter(n => !workColNums.has(n));
 
-      // Converti numeri-data in giorno della settimana
+      // Converti numeri in giorno settimana + costruisci weekLabel
       const restDays = [];
-      const allNums = zones.map(z=>z.num).sort((a,b)=>a-b);
+      let weekLabel = '';
       const now = new Date();
-      let resolved = false;
-      for(let off=0; off<=4 && !resolved; off++){
+      let resolvedYr, resolvedMo;
+      for(let off=0; off<=4; off++){
         const d0 = new Date(now.getFullYear(), now.getMonth()-off, 1);
         const yr = d0.getFullYear(), mo = d0.getMonth();
         const dim = new Date(yr, mo+1, 0).getDate();
-        if(allNums.some(n => n > dim)) continue;
-        // Verifica coerenza: almeno 2 consecutivi o >=4 presenti
-        const seq = allNums.slice(1).some((n,i) => n-allNums[i]===1);
-        if(!seq && allNums.length < 4) continue;
+        const sorted = [...allNums].sort((a,b)=>a-b);
+        // Numeri che superano giorni del mese: potrebbero essere del mese successivo
+        let valid = true;
+        for(const n of sorted){ if(n > dim + 6){ valid=false; break; } }
+        if(!valid) continue;
+        const seq = sorted.slice(1).some((n,i) => n-sorted[i]===1);
+        if(!seq && sorted.length < 4) continue;
+        resolvedYr = yr; resolvedMo = mo;
         restNums.forEach(n => {
-          const dow = DOW_MAP[new Date(yr, mo, n).getDay()];
+          // Gestisce date a cavallo di mese
+          let actMo = mo, actYr = yr;
+          if(n > dim){ actMo = mo+1; if(actMo>11){ actMo=0; actYr=yr+1; } }
+          const dow = DOW_MAP[new Date(actYr, actMo, n).getDay()];
           if(!restDays.includes(dow)) restDays.push(dow);
         });
-        resolved = true;
+        // Costruisci label settimana
+        const minN = Math.min(...allNums), maxN = Math.max(...allNums);
+        const startDate = new Date(yr, mo, minN < maxN ? minN : minN);
+        let endMo = mo, endYr = yr;
+        if(maxN > dim){ endMo = mo+1; if(endMo>11){ endMo=0; endYr=yr+1; } }
+        const endDate = new Date(endYr, endMo, maxN);
+        const fmt = d => `${d.getDate()} ${MONTHS_IT[d.getMonth()]}`;
+        weekLabel = `${fmt(startDate)} – ${fmt(endDate)} ${endDate.getFullYear()}`;
+        break;
       }
 
       const giorni = DOW_IT.map(d => (
@@ -5108,7 +5141,7 @@ function buildHolidayMapForYear(year){
           ? { giorno:d, riposo:true }
           : { giorno:d, riposo:false, inizio:mainStart, fine:'00:00' }
       ));
-      return { giorni };
+      return { giorni, weekLabel };
     }
 
     function matchScheduleToPattern(giorni, forcedRole){
@@ -5134,7 +5167,7 @@ function buildHolidayMapForYear(year){
       return { role:bestRole, anchorIndex:bestIdx, mainStart, restDays };
     }
 
-    function showScanResult(match, giorni){
+    function showScanResult(match, giorni, weekLabel){
       const { role, anchorIndex } = match;
       const pattern = role==='tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
       const entry = pattern[anchorIndex];
@@ -5146,8 +5179,10 @@ function buildHolidayMapForYear(year){
         return `<div style="font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(92,155,255,0.08);font-weight:700;">${d}<br>${escapeHtml(g.inizio||'')}</div>`;
       }).join('');
       const roleLabel = role==='tutor'?'Tutor':'Dipendente';
+      const weekRow = weekLabel ? `<div style="font-size:11px;font-weight:700;opacity:0.55;margin-bottom:8px;"><i class="fa-solid fa-calendar-week" style="margin-right:5px;"></i>${escapeHtml(weekLabel)}</div>` : '';
       const html = `<div style="border:1.5px solid rgba(92,155,255,0.3);border-radius:14px;padding:14px;background:rgba(92,155,255,0.05);">
-        <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Turno rilevato</div>
+        <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Turno rilevato</div>
+        ${weekRow}
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${giorniHtml}</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;font-weight:700;">
           <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Ruolo: <strong>${roleLabel}</strong></div>
