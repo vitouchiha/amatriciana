@@ -3126,6 +3126,11 @@ function buildHolidayMapForYear(year){
         const btn   = document.getElementById('orarioColleghiBtn');
         if(!teamC) return;
         const visible = teamC.style.display !== 'none';
+        if(!visible){
+          // Reset tutti i gruppi a chiusi quando si apre la sezione
+          Object.keys(_teamGroupOpen).forEach(k => delete _teamGroupOpen[k]);
+          renderTeamList();
+        }
         teamC.style.display = visible ? 'none' : '';
         if(btn) btn.classList.toggle('active', !visible);
       });
@@ -3270,7 +3275,7 @@ function buildHolidayMapForYear(year){
         const details = document.createElement('details');
         details.style.cssText = 'border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:6px;';
         // Preserve open/close state; default open
-        details.open = key in _teamGroupOpen ? _teamGroupOpen[key] : true;
+        details.open = key in _teamGroupOpen ? _teamGroupOpen[key] : false;
         details.addEventListener('toggle', () => { _teamGroupOpen[key] = details.open; });
 
         const summary = document.createElement('summary');
