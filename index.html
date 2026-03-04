@@ -3419,7 +3419,7 @@ function buildHolidayMapForYear(year){
 
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
-    let _aiApiKey = 'gsk_Z3bBKQOHsefbe8Jm94qu'+'WGdyb3FYKN5JDANPZs5rdB4oLNxS4nFo';
+    let _aiApiKey = 'AIzaSyD46-AHfE'+'3v3nFzJL6kKsmbMQ0izEoTvFw';
     let _colleagueViewMode = 'calendar'; // 'calendar' | 'cards' | 'table'
     let _colleagueViewYear = new Date().getFullYear();
 
@@ -4996,7 +4996,7 @@ function buildHolidayMapForYear(year){
         try{
           const team = document.getElementById('scanTeamInput').value.trim() || 'N/A';
           const base64 = await fileToBase64(_scanFile);
-          const extracted = await callGrok(base64, _scanFile.type, key, _scanRole, team);
+          const extracted = await callGemini(base64, _scanFile.type, key, _scanRole, team);
           _scanResult = matchScheduleToPattern(extracted.giorni || [], _scanRole);
           showScanResult(_scanResult, extracted.giorni || []);
         } catch(err){
@@ -5035,34 +5035,27 @@ function buildHolidayMapForYear(year){
       });
     }
 
-    async function callGrok(base64Image, mimeType, apiKey, role, team){
+    async function callGemini(base64Image, mimeType, apiKey, role, team){
       const roleHint = role === 'tutor' ? 'Tutor' : 'Dipendente';
       const teamHint = (team && team !== 'N/A') ? ` del team "${team}"` : '';
       const prompt = `Analizza questa immagine di un turno di lavoro settimanale. L'utente è un ${roleHint}${teamHint}.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
       const body = {
-        model: 'grok-2-vision-1212',
-        messages: [{
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } },
-            { type: 'text', text: prompt }
-          ]
-        }]
+        contents:[{ parts:[
+          { text: prompt },
+          { inline_data:{ mime_type: mimeType, data: base64Image } }
+        ]}]
       };
-      const resp = await fetch('https://api.x.ai/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify(body)
-      });
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
       if(!resp.ok){
         const errText = await resp.text().catch(()=>'');
-        throw new Error(`Errore Grok ${resp.status}: ${errText.slice(0,160)}`);
+        throw new Error(`Errore AI ${resp.status}: ${errText.slice(0,160)}`);
       }
       const data = await resp.json();
-      const text = data.choices?.[0]?.message?.content || '';
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const clean = text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
       try{ return JSON.parse(clean); }
-      catch(e){ throw new Error("Risposta non valida da Grok. Usa un'immagine più chiara."); }
+      catch(e){ throw new Error("Risposta non valida. Usa un'immagine più chiara."); }
     }
 
     function matchScheduleToPattern(giorni, forcedRole){
