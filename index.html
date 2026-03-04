@@ -5037,7 +5037,8 @@ function buildHolidayMapForYear(year){
     }
 
     async function callGemini(base64Image, mimeType, apiKey, role, team){
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      // modelli in ordine di fallback (quota più generosa prima)
+      const MODELS = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-flash-8b'];
       const roleHint = role === 'tutor' ? 'Tutor' : 'Dipendente';
       const teamHint = (team && team !== 'N/A') ? ` del team "${team}"` : '';
       const prompt = `Analizza questa immagine di un turno di lavoro settimanale. L'utente è un ${roleHint}${teamHint}.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
@@ -5047,16 +5048,31 @@ function buildHolidayMapForYear(year){
           { inline_data:{ mime_type: mimeType, data: base64Image } }
         ]}]
       };
-      const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
-      if(!resp.ok){
-        const errText = await resp.text().catch(()=>'');
-        throw new Error(`Errore Gemini ${resp.status}: ${errText.slice(0,140)}`);
+      let lastErr = null;
+      for(const model of MODELS){
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        try{
+          const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+          if(resp.status === 429){
+            lastErr = new Error(`Quota esaurita su ${model}, provo con il modello successivo…`);
+            continue; // fallback al prossimo modello
+          }
+          if(!resp.ok){
+            const errText = await resp.text().catch(()=>'');
+            lastErr = new Error(`Errore Gemini ${resp.status}: ${errText.slice(0,140)}`);
+            continue;
+          }
+          const data = await resp.json();
+          const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          const clean = text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+          try{ return JSON.parse(clean); }
+          catch(e){ throw new Error("Risposta non valida da Gemini. Usa un'immagine più chiara."); }
+        } catch(fetchErr){
+          if(fetchErr.message.includes('Risposta non valida')) throw fetchErr;
+          lastErr = fetchErr;
+        }
       }
-      const data = await resp.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      const clean = text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
-      try{ return JSON.parse(clean); }
-      catch(e){ throw new Error("Risposta non valida da Gemini. Usa un'immagine più chiara."); }
+      throw lastErr || new Error('Tutti i modelli Gemini hanno fallito. Riprova più tardi.');
     }
 
     function matchScheduleToPattern(giorni, forcedRole){
