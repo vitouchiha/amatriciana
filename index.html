@@ -1867,6 +1867,27 @@
         <button class="icon-btn" id="closeScanModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
       </div>
       <div style="padding:14px 16px 0;">
+        <!-- Role + Team row -->
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
+          <!-- Role segment -->
+          <div style="padding:10px 12px;background:var(--ctrl-bg);border-radius:12px;border:1.5px solid var(--stroke);">
+            <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">Ruolo</div>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="scan-role-btn" id="scanRoleDip" data-role="dipendente" style="flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:800;cursor:pointer;">Dipendente</button>
+              <button type="button" class="scan-role-btn" id="scanRoleTutor" data-role="tutor" style="flex:1;padding:8px;border-radius:10px;border:1.5px solid var(--stroke);background:transparent;color:var(--text);font-size:13px;font-weight:800;cursor:pointer;">Tutor</button>
+            </div>
+          </div>
+          <!-- Team row -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--ctrl-bg);border-radius:12px;border:1.5px solid var(--stroke);">
+            <i class="fa-solid fa-users" style="color:var(--accent);font-size:14px;flex-shrink:0;"></i>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Team</div>
+              <input type="text" id="scanTeamInput" placeholder="Es. Team A, Amazon..." autocomplete="off"
+                style="width:100%;box-sizing:border-box;background:none;border:none;outline:none;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;" />
+            </div>
+            <button type="button" id="scanTeamNaBtn" title="Non conosco il team" onclick="document.getElementById('scanTeamInput').value='N/A'" style="padding:5px 10px;border-radius:8px;border:1.5px solid var(--stroke);background:transparent;font-size:11px;font-weight:800;color:var(--text);cursor:pointer;">N/A</button>
+          </div>
+        </div>
         <!-- API Key row -->
         <div id="scanApiRow" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--ctrl-bg);border-radius:12px;border:1.5px solid var(--stroke);">
           <i class="fa-solid fa-key" style="color:var(--accent);font-size:14px;flex-shrink:0;"></i>
@@ -4869,6 +4890,20 @@ function buildHolidayMapForYear(year){
       document.getElementById('closeScanModal').addEventListener('click', ()=> closeModal('scanModal'));
       document.getElementById('scanModal').addEventListener('click', e=>{ if(e.target.id === 'scanModal') closeModal('scanModal'); });
 
+      // Role selection
+      let _scanRole = 'dipendente';
+      document.querySelectorAll('.scan-role-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          _scanRole = btn.dataset.role;
+          document.querySelectorAll('.scan-role-btn').forEach(b=>{
+            const active = b.dataset.role === _scanRole;
+            b.style.background = active ? 'var(--accent)' : 'transparent';
+            b.style.color = active ? '#fff' : 'var(--text)';
+            b.style.borderColor = active ? 'var(--accent)' : 'var(--stroke)';
+          });
+        });
+      });
+
       const keyInp = document.getElementById('scanApiKeyInput');
       const keySetLbl = document.getElementById('scanApiKeySet');
       const saveKeyBtn = document.getElementById('scanSaveKeyBtn');
@@ -4960,9 +4995,10 @@ function buildHolidayMapForYear(year){
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Analisi in corso...';
         btn.disabled = true;
         try{
+          const team = document.getElementById('scanTeamInput').value.trim() || 'N/A';
           const base64 = await fileToBase64(_scanFile);
-          const extracted = await callGemini(base64, _scanFile.type, key);
-          _scanResult = matchScheduleToPattern(extracted.giorni || []);
+          const extracted = await callGemini(base64, _scanFile.type, key, _scanRole, team);
+          _scanResult = matchScheduleToPattern(extracted.giorni || [], _scanRole);
           showScanResult(_scanResult, extracted.giorni || []);
         } catch(err){
           const wrap = document.getElementById('scanResultWrap');
@@ -5000,9 +5036,11 @@ function buildHolidayMapForYear(year){
       });
     }
 
-    async function callGemini(base64Image, mimeType, apiKey){
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-      const prompt = `Analizza questa immagine di un turno di lavoro settimanale.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
+    async function callGemini(base64Image, mimeType, apiKey, role, team){
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+      const roleHint = role === 'tutor' ? 'Tutor' : 'Dipendente';
+      const teamHint = (team && team !== 'N/A') ? ` del team "${team}"` : '';
+      const prompt = `Analizza questa immagine di un turno di lavoro settimanale. L'utente è un ${roleHint}${teamHint}.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
       const body = {
         contents:[{ parts:[
           { text: prompt },
@@ -5021,7 +5059,7 @@ function buildHolidayMapForYear(year){
       catch(e){ throw new Error("Risposta non valida da Gemini. Usa un'immagine più chiara."); }
     }
 
-    function matchScheduleToPattern(giorni){
+    function matchScheduleToPattern(giorni, forcedRole){
       const workDays = giorni.filter(g => !g.riposo);
       const restDays = giorni.filter(g => g.riposo).map(g => g.giorno);
       const freq = {};
@@ -5034,9 +5072,13 @@ function buildHolidayMapForYear(year){
         restDays.forEach(r => { if(entry.restDays.includes(r)) s += 1; });
         return s;
       }
-      let bestRole='dipendente', bestIdx=0, bestScore=-1;
-      DIPENDENTE_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='dipendente';bestIdx=i;} });
-      TUTOR_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='tutor';bestIdx=i;} });
+      let bestRole = forcedRole || 'dipendente', bestIdx=0, bestScore=-1;
+      if(!forcedRole || forcedRole === 'dipendente'){
+        DIPENDENTE_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='dipendente';bestIdx=i;} });
+      }
+      if(!forcedRole || forcedRole === 'tutor'){
+        TUTOR_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='tutor';bestIdx=i;} });
+      }
       return { role:bestRole, anchorIndex:bestIdx, mainStart, restDays };
     }
 
