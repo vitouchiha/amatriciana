@@ -1839,6 +1839,11 @@
     <div class="modal-sheet modal-sheet-scroll" style="width:min(720px,100%);">
       <div class="modal-head" style="flex-wrap:wrap;gap:8px;">
         <div class="modal-title" id="colleagueMatrixTitle">Matrice collega</div>
+        <div style="display:flex;align-items:center;gap:2px;">
+          <button class="icon-btn" id="colleagueYearPrev" type="button" title="Anno precedente" style="padding:4px 7px;"><i class="fa-solid fa-chevron-left"></i></button>
+          <span id="colleagueYearLabel" style="font-size:15px;font-weight:900;min-width:46px;text-align:center;letter-spacing:-0.5px;">2026</span>
+          <button class="icon-btn" id="colleagueYearNext" type="button" title="Anno successivo" style="padding:4px 7px;"><i class="fa-solid fa-chevron-right"></i></button>
+        </div>
         <div style="display:flex;gap:6px;align-items:center;">
           <div id="colleagueViewToggle" style="display:flex;border:1.5px solid #e2e8f0;border-radius:8px;overflow:hidden;">
             <button id="toggleCalBtn" type="button" title="Vista calendario"
@@ -3288,26 +3293,42 @@ function buildHolidayMapForYear(year){
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
     let _colleagueViewMode = 'calendar'; // 'calendar' | 'cards' | 'table'
+    let _colleagueViewYear = new Date().getFullYear();
+
+    function _updateColleagueYearLabel(){
+      const el = document.getElementById('colleagueYearLabel');
+      if(el) el.textContent = String(_colleagueViewYear);
+      // Disable prev if at or before start year
+      if(_viewedColleague){
+        const startYear = parseISODate(_viewedColleague.startWeekISO).getFullYear();
+        const maxYear = startYear + 19;
+        const prevBtn = document.getElementById('colleagueYearPrev');
+        const nextBtn = document.getElementById('colleagueYearNext');
+        if(prevBtn) prevBtn.disabled = _colleagueViewYear <= startYear;
+        if(nextBtn) nextBtn.disabled = _colleagueViewYear >= maxYear;
+      }
+    }
 
     function renderColleagueBody(){
       const body = document.getElementById('colleagueMatrixBody');
       if(!body || !_viewedColleague) return;
       body.innerHTML = '';
+      const yearCfg = computeCfgForYear(_viewedColleague, _colleagueViewYear);
+      const yearWeekCount = computeTutorWeekCount(yearCfg.startWeekISO);
       if(_colleagueViewMode === 'table'){
-        body.appendChild(buildTableViewForCfg(_viewedColleague));
+        body.appendChild(buildTableViewForCfg(yearCfg, yearWeekCount));
       } else if(_colleagueViewMode === 'cards'){
-        body.appendChild(buildCardsViewForCfg(_viewedColleague));
+        body.appendChild(buildCardsViewForCfg(yearCfg, yearWeekCount));
       } else {
-        const node = buildCalendarExportNodeForCfg(_viewedColleague);
-        // Fit within modal: inherit width, remove fixed 700px
+        const node = buildCalendarExportNodeForCfg(yearCfg, yearWeekCount);
         node.style.width = '100%';
         node.style.padding = '0';
         body.appendChild(node);
       }
     }
 
-    function buildCardsViewForCfg(cfg){
-      const totalWeeks = computeColleagueWeekCount(cfg.startWeekISO);
+    function buildCardsViewForCfg(cfg, totalWeeksOverride){
+      const totalWeeks = totalWeeksOverride || computeColleagueWeekCount(cfg.startWeekISO);
       const weeks = buildMatrixDataForConfig(cfg, totalWeeks);
       const todayISO = isoDate(new Date());
       const todayYear = new Date().getFullYear();
@@ -3315,7 +3336,44 @@ function buildHolidayMapForYear(year){
       wrap.className = 'cards-wrap';
       wrap.style.display = 'block';
 
-      // Group weeks by year
+      if(totalWeeksOverride){
+        // Flat list — single year mode
+        weeks.forEach(w => {
+          const isWeekToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+          const det = document.createElement('details');
+          det.className = 'week-card';
+          if(isWeekToday) det.open = true;
+          const label = weekLabel(w.weekStart);
+          const summ = document.createElement('summary');
+          summ.innerHTML = `<div class="wc-left"><div class="wc-title">${label}</div></div><div class="chev"><i class="fa-solid fa-chevron-down"></i></div>`;
+          det.appendChild(summ);
+          const body = document.createElement('div');
+          body.className = 'wc-body';
+          w.days.forEach(d => {
+            const dateTxt = fmtDayMonth(d.dateObj);
+            const isToday = isoDate(d.dateObj) === todayISO;
+            let rightHTML = '';
+            if(d.holidayName){
+              rightHTML = `<div class="day-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div><div class="holiday-name">${escapeHtml(d.holidayName)}</div>`;
+            } else if(d.isRest){
+              rightHTML = `<div class="pill rest">LIBERO</div>`;
+            } else {
+              rightHTML = `<div class="day-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            }
+            if(d.isRientro) rightHTML += `<div class="cal-rientro">Rientro</div>`;
+            const row = document.createElement('div');
+            row.className = `day-row${isToday ? ' day-row-today' : ''}`;
+            if(isToday) row.style.cssText = 'outline:2px solid var(--accent);outline-offset:-2px;border-radius:14px;';
+            row.innerHTML = `<div class="day-left"><div class="day-name">${d.dayName}</div><div class="day-date">${dateTxt}</div></div><div class="day-right">${rightHTML}</div>`;
+            body.appendChild(row);
+          });
+          det.appendChild(body);
+          wrap.appendChild(det);
+        });
+        return wrap;
+      }
+
+      // 20-year grouped mode
       const byYear = new Map();
       weeks.forEach(w => {
         const y = w.weekStart.getFullYear();
@@ -3379,21 +3437,54 @@ function buildHolidayMapForYear(year){
         toast('Configurazione incompleta', 'Questo collega non ha una matrice configurata.'); return;
       }
       _viewedColleague = c;
+      _colleagueViewYear = new Date().getFullYear();
       const title = document.getElementById('colleagueMatrixTitle');
       if(title) title.textContent = `Matrice di ${c.name}`;
+      _updateColleagueYearLabel();
       renderColleagueBody();
       openModal('colleagueMatrixModal');
     }
 
-    function buildTableViewForCfg(cfg){
-      const totalWeeks = computeColleagueWeekCount(cfg.startWeekISO);
+    function buildTableViewForCfg(cfg, totalWeeksOverride){
+      const totalWeeks = totalWeeksOverride || computeColleagueWeekCount(cfg.startWeekISO);
       const weeks = buildMatrixDataForConfig(cfg, totalWeeks);
       const todayISO = isoDate(new Date());
       const todayYear = new Date().getFullYear();
       const cols = ['Settimana', ...DAYS];
       const wrap = document.createElement('div');
 
-      // Group by year
+      if(totalWeeksOverride){
+        // Flat table — single year mode
+        let html = '<div class="matrix-container" style="overflow-x:auto;"><table class="matrix-table"><thead><tr>';
+        cols.forEach(c => html += `<th>${c}</th>`);
+        html += '</tr></thead><tbody>';
+        weeks.forEach(w => {
+          const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+          html += `<tr class="${isRowToday ? 'row-today' : ''}">`;
+          html += `<td><span class="week-label">${weekLabel(w.weekStart)}</span></td>`;
+          w.days.forEach(d => {
+            const isToday = isoDate(d.dateObj) === todayISO;
+            let cellHtml = `<div class="cell-stack">`;
+            if(d.holidayName){
+              cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+              cellHtml += `<div class="holiday-name">${d.holidayName}</div>`;
+            } else if(d.isRest){
+              cellHtml += `<div class="pill rest">LIBERO</div>`;
+            } else {
+              cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            }
+            if(d.isRientro) cellHtml += `<div class="cal-rientro">Rientro</div>`;
+            cellHtml += `</div>`;
+            html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
+          });
+          html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        wrap.innerHTML = html;
+        return wrap;
+      }
+
+      // 20-year grouped mode
       const byYear = new Map();
       weeks.forEach(w => {
         const y = w.weekStart.getFullYear();
@@ -3599,7 +3690,7 @@ function buildHolidayMapForYear(year){
         role:               cfg.role,
         team:               cfg.team,
         durationMinutes:    cfg.durationMinutes,
-        startWeekISO:       isoDate(getFirstMondayOfYear(targetYear)),
+        startWeekISO:       targetYear === startYear ? cfg.startWeekISO : isoDate(getFirstMondayOfYear(targetYear)),
         anchorPatternIndex: anchor,
       };
     }
@@ -3632,15 +3723,17 @@ function buildHolidayMapForYear(year){
       const btn = document.getElementById('saveCollegueMatrixBtn');
       if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-spinner fa-spin'; }
       try{
-        const node = buildCalendarExportNodeForCfg(_viewedColleague);
+        const yearCfg = computeCfgForYear(_viewedColleague, _colleagueViewYear);
+        const yearWeekCount = computeTutorWeekCount(yearCfg.startWeekISO);
+        const node = buildCalendarExportNodeForCfg(yearCfg, yearWeekCount);
         node.style.position = 'fixed'; node.style.left = '-99999px'; node.style.top = '0';
         document.body.appendChild(node);
         const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale: Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
         node.remove();
         const blob = canvasToPdfBlob(canvas);
         const safeName = (_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-');
-        _downloadBlob(blob, `matrice-${safeName}.pdf`);
-        toast('Salvata!', `matrice-${_viewedColleague.name}.pdf`);
+        _downloadBlob(blob, `matrice-${safeName}-${_colleagueViewYear}.pdf`);
+        toast('Salvata!', `matrice-${_viewedColleague.name} ${_colleagueViewYear}.pdf`);
       } catch(e){
         toast('Errore', 'Export non riuscito.');
       } finally {
@@ -5408,6 +5501,18 @@ function buildHolidayMapForYear(year){
       document.getElementById('closeColleagueMatrixModal').addEventListener('click', ()=> closeModal('colleagueMatrixModal'));
       document.getElementById('saveCollegueMatrixBtn').addEventListener('click', saveColleaguePng);
       document.getElementById('colleagueMatrixModal').addEventListener('click', e=>{ if(e.target.id==='colleagueMatrixModal') closeModal('colleagueMatrixModal'); });
+
+      // Navigazione anno
+      document.getElementById('colleagueYearPrev').addEventListener('click', ()=>{
+        if(!_viewedColleague) return;
+        const startYear = parseISODate(_viewedColleague.startWeekISO).getFullYear();
+        if(_colleagueViewYear > startYear){ _colleagueViewYear--; _updateColleagueYearLabel(); renderColleagueBody(); }
+      });
+      document.getElementById('colleagueYearNext').addEventListener('click', ()=>{
+        if(!_viewedColleague) return;
+        const maxYear = parseISODate(_viewedColleague.startWeekISO).getFullYear() + 19;
+        if(_colleagueViewYear < maxYear){ _colleagueViewYear++; _updateColleagueYearLabel(); renderColleagueBody(); }
+      });
 
       // Export anni successivi — dropdown
       document.getElementById('exportNextYearBtn').addEventListener('click', e=>{
