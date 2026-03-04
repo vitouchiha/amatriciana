@@ -5028,41 +5028,88 @@ function buildHolidayMapForYear(year){
       if(typeof Tesseract === 'undefined') throw new Error('Tesseract.js non ancora caricato. Riprova tra qualche secondo.');
       const { data } = await Tesseract.recognize(imageFile, 'ita+eng', {
         logger: m => {
-          if(m.status === 'recognizing text' && onProgress){
+          if(m.status === 'recognizing text' && onProgress)
             onProgress(Math.round(m.progress * 100));
-          }
         }
       });
-      const text = data.text;
-      // Estrai tutti gli orari formato HH.MM / H.MM / HH:MM / H:MM
-      const timeRe = /\b(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])\b/g;
-      const allTimes = [...text.matchAll(timeRe)]
-        .map(m => `${m[1].padStart(2,'0')}:${m[2]}`)
-        .filter(t => t !== '00:00' && t !== '24:00');
-      if(allTimes.length === 0) throw new Error("Nessun orario trovato nell'immagine. Usa un'immagine più nitida e ben illuminata.");
-      // Orario più frequente = inizio turno
-      const freq = {};
-      allTimes.forEach(t => freq[t] = (freq[t]||0)+1);
-      const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
-      // Prova a rilevare giorni di riposo da nomi giorno vicini a R/RIP/OFF
+
       const DOW_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
-      const restDays = [];
-      const lines = text.split('\n');
-      lines.forEach(line => {
-        DOW_IT.forEach(d => {
-          if(new RegExp(d,'i').test(line)){
-            const hasTime = /\b(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])\b/.test(line);
-            if(!hasTime || /\bR\b|\bRIP|\bOFF|RIPOSO/i.test(line)){
-              if(!restDays.includes(d)) restDays.push(d);
-            }
-          }
-        });
-      });
-      // Costruisci array giorni
-      const giorni = DOW_IT.map(d => (
+      const timeRe = /^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/;
+      const parseT = s => { const m=s.match(/^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/); return m?`${m[1].padStart(2,'0')}:${m[2]}`:null; };
+
+      // Filtra parole con confidenza accettabile
+      const words = (data.words||[]).filter(w => w.confidence > 20 && w.text.trim().length >= 2);
+
+      // Parole che sono orari
+      const timeWords = words.filter(w => timeRe.test(w.text.trim()));
+      if(timeWords.length === 0) throw new Error("Nessun orario trovato. Usa un'immagine più nitida.");
+
+      // Orario più frequente (escludendo 00:00)
+      const freq = {};
+      timeWords.forEach(w => { const t=parseT(w.text.trim()); if(t && t!=='00:00') freq[t]=(freq[t]||0)+1; });
+      if(!Object.keys(freq).length) throw new Error("Nessun orario di inizio trovato.");
+      const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+
+      // Dimensioni immagine dai bbox delle parole
+      const allX = words.flatMap(w=>[w.bbox.x0,w.bbox.x1]);
+      const allY = words.flatMap(w=>[w.bbox.y0,w.bbox.y1]);
+      const maxX = Math.max(...allX)||700;
+      const maxY = Math.max(...allY)||400;
+
+      // Riga di intestazione = numeri da 1-31 nel quarto superiore
+      const topThreshold = maxY * 0.30;
+      const dateWords = words.filter(w=>{
+        const n=parseInt(w.text.trim());
+        return /^\d{1,2}$/.test(w.text.trim()) && n>=1 && n<=31 && (w.bbox.y0+w.bbox.y1)/2 < topThreshold;
+      }).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+
+      // Centro-x degli orari di lavoro (non 00:00)
+      const workTimeCenters = timeWords
+        .filter(w=>{ const t=parseT(w.text.trim()); return t && t!=='00:00'; })
+        .map(w=>(w.bbox.x0+w.bbox.x1)/2);
+
+      let restDays = [];
+
+      if(dateWords.length >= 3){
+        // Tolleranza colonna = metà della larghezza media tra date adiacenti
+        const dateXs = dateWords.map(d=>(d.bbox.x0+d.bbox.x1)/2);
+        const gaps = dateXs.slice(1).map((x,i)=>x-dateXs[i]);
+        const avgGap = gaps.reduce((a,b)=>a+b,0)/(gaps.length||1);
+        const tol = Math.max(30, avgGap * 0.55);
+
+        // Date che NON hanno un orario nella loro colonna = riposo
+        const restDateNums = dateWords.filter(d=>{
+          const dx=(d.bbox.x0+d.bbox.x1)/2;
+          return !workTimeCenters.some(tx=>Math.abs(tx-dx)<tol);
+        }).map(d=>parseInt(d.text.trim()));
+
+        // Convertiamo numero-giorno → giorno della settimana
+        // Usiamo le date consecutive per dedurre il mese
+        const allNums = dateWords.map(d=>parseInt(d.text.trim())).sort((a,b)=>a-b);
+        const now = new Date();
+        // Prova mese corrente e i 3 precedenti (mese più recente prima)
+        for(let off=0; off<=3; off++){
+          const d0 = new Date(now.getFullYear(), now.getMonth()-off, 1);
+          const yr = d0.getFullYear(), mo = d0.getMonth();
+          // Verifica che i numeri trovati siano date valide in quel mese
+          const daysInMonth = new Date(yr, mo+1, 0).getDate();
+          if(allNums.some(n=>n>daysInMonth)) continue;
+          // Verifica sequenzialità: almeno 2 numeri consecutivi
+          const isSeq = allNums.slice(1).some((n,i)=>n-allNums[i]===1);
+          if(!isSeq && allNums.length < 4) continue;
+          const DOW_MAP = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+          restDateNums.forEach(n=>{
+            const dow = DOW_MAP[new Date(yr,mo,n).getDay()];
+            if(!restDays.includes(dow)) restDays.push(dow);
+          });
+          if(restDays.length>0) break;
+        }
+      }
+
+      const giorni = DOW_IT.map(d=>(
         restDays.includes(d)
-          ? { giorno: d, riposo: true }
-          : { giorno: d, riposo: false, inizio: mainStart, fine: '00:00' }
+          ? { giorno:d, riposo:true }
+          : { giorno:d, riposo:false, inizio:mainStart, fine:'00:00' }
       ));
       return { giorni };
     }
