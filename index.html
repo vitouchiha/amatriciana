@@ -806,6 +806,11 @@
     html[data-theme="dark"] .modal-item{background: rgba(16,18,27,0.60); border: 1px solid rgba(255,255,255,0.10);}
     .modal-item[aria-current="true"]{outline: 2px solid rgba(92,155,255,0.55);}
 
+    /* Export anno successivo — dropdown anni */
+    .year-export-dd{ background:var(--card-bg,#fff); padding:5px 0; }
+    .year-export-item{ display:block; width:100%; padding:8px 16px; font-size:13px; font-weight:700; text-align:left; background:none; border:0; cursor:pointer; color:var(--text,#0b1020); transition:background .1s; }
+    .year-export-item:hover{ background:var(--accent,#5c9bff); color:#fff; }
+
     /* Export cleanup */
     .export-root{
       background: #fff;
@@ -1852,6 +1857,12 @@
           <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PDF" title="Salva PDF">
             <i class="fa-solid fa-download"></i>
           </button>
+          <div id="exportNextYearWrap" style="display:none;position:relative;">
+            <button class="icon-btn" id="exportNextYearBtn" type="button" aria-label="Esporta anno successivo" title="Esporta anno successivo">
+              <i class="fa-solid fa-calendar-plus"></i>
+            </button>
+            <div id="exportYearDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:1200;border-radius:12px;overflow:hidden;border:1.5px solid var(--stroke,#e2e8f0);box-shadow:0 8px 28px rgba(0,0,0,0.18);min-width:140px;"></div>
+          </div>
           <button class="icon-btn" id="closeColleagueMatrixModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
         </div>
       </div>
@@ -3039,6 +3050,9 @@ function buildHolidayMapForYear(year){
       if(!isAdmin && findC) findC.style.display = 'none';
       if(!isAdmin && teamC) teamC.style.display = 'none';
       if(!isAdmin && srchC) srchC.style.display = 'none';
+      // Export anno successivo (matrice collega)
+      const exportYearWrap = document.getElementById('exportNextYearWrap');
+      if(exportYearWrap) exportYearWrap.style.display = isAdmin ? '' : 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
     }
@@ -3497,6 +3511,51 @@ function buildHolidayMapForYear(year){
         container.appendChild(card);
       });
       return container;
+    }
+
+    function getFirstMondayOfYear(year){
+      const jan1 = new Date(year, 0, 1);
+      const dow = jan1.getDay(); // 0=Sun..6=Sat
+      return addDays(jan1, dow === 0 ? 1 : dow === 1 ? 0 : 8 - dow);
+    }
+
+    function computeCfgForYear(cfg, targetYear){
+      const pattern = cfg.role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
+      let anchor = cfg.anchorPatternIndex;
+      const startYear = parseISODate(cfg.startWeekISO).getFullYear();
+      for(let y = startYear; y < targetYear; y++){
+        const yStartISO = (y === startYear) ? cfg.startWeekISO : isoDate(getFirstMondayOfYear(y));
+        anchor = (anchor + computeTutorWeekCount(yStartISO)) % pattern.length;
+      }
+      return {
+        role:               cfg.role,
+        team:               cfg.team,
+        durationMinutes:    cfg.durationMinutes,
+        startWeekISO:       isoDate(getFirstMondayOfYear(targetYear)),
+        anchorPatternIndex: anchor,
+      };
+    }
+
+    async function exportColleagueForYear(year){
+      if(!_viewedColleague) return;
+      const cfg = computeCfgForYear(_viewedColleague, year);
+      const btn = document.getElementById('exportNextYearBtn');
+      if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-spinner fa-spin'; }
+      try{
+        const node = buildCalendarExportNodeForCfg(cfg);
+        node.style.position='fixed'; node.style.left='-99999px'; node.style.top='0';
+        document.body.appendChild(node);
+        const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
+        node.remove();
+        const blob = canvasToPdfBlob(canvas);
+        const safeName = (_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-');
+        _downloadBlob(blob, `matrice-${safeName}-${year}.pdf`);
+        toast('Salvata!', `Matrice ${year} di ${_viewedColleague.name}`);
+      } catch(e){
+        toast('Errore', 'Export non riuscito.');
+      } finally {
+        if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-calendar-plus'; }
+      }
     }
 
     async function saveColleaguePng(){
@@ -5280,6 +5339,32 @@ function buildHolidayMapForYear(year){
       document.getElementById('closeColleagueMatrixModal').addEventListener('click', ()=> closeModal('colleagueMatrixModal'));
       document.getElementById('saveCollegueMatrixBtn').addEventListener('click', saveColleaguePng);
       document.getElementById('colleagueMatrixModal').addEventListener('click', e=>{ if(e.target.id==='colleagueMatrixModal') closeModal('colleagueMatrixModal'); });
+
+      // Export anni successivi — dropdown
+      document.getElementById('exportNextYearBtn').addEventListener('click', e=>{
+        e.stopPropagation();
+        const dd = document.getElementById('exportYearDropdown');
+        if(dd.style.display !== 'none'){ dd.style.display='none'; return; }
+        if(!_viewedColleague) return;
+        const baseYear = parseISODate(_viewedColleague.startWeekISO).getFullYear();
+        dd.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.className = 'year-export-dd';
+        for(let y = baseYear + 1; y <= baseYear + 5; y++){
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'year-export-item';
+          item.innerHTML = `<i class="fa-regular fa-calendar" style="margin-right:7px;"></i>${y}`;
+          item.addEventListener('click', ()=>{ dd.style.display='none'; exportColleagueForYear(y); });
+          wrap.appendChild(item);
+        }
+        dd.appendChild(wrap);
+        dd.style.display = '';
+      });
+      document.addEventListener('click', ()=>{
+        const dd = document.getElementById('exportYearDropdown');
+        if(dd) dd.style.display = 'none';
+      });
       // Toggle calendario / schede / tabella
       const _allToggleBtns = ['toggleCalBtn','toggleCardsBtn','toggleTblBtn'];
       function _setColleagueToggle(active){
