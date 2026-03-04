@@ -1443,6 +1443,10 @@
     }
     .modal-sheet-scroll{ max-height:85vh; overflow-y:auto; }
 
+    /* Scan turno da foto */
+    .scan-drop{ border:2px dashed var(--stroke,#e2e8f0); border-radius:16px; padding:28px 20px; text-align:center; cursor:pointer; transition:border-color .2s,background .2s; background:var(--ctrl-bg); }
+    .scan-drop:hover,.scan-drop.drag-over{ border-color:var(--accent,#5c9bff); background:rgba(92,155,255,0.07); }
+
 </style>
 </head>
 
@@ -1474,6 +1478,12 @@
             <i class="fa-solid fa-building"></i>
           </button>
           <span class="label">Rientri</span>
+        </div>
+        <div class="ctrl" id="scanCtrl" style="display:none;">
+          <button class="icon-btn" id="scanBtn" type="button" title="Scansiona turno da foto" aria-label="Scansiona turno da foto">
+            <i class="fa-solid fa-camera"></i>
+          </button>
+          <span class="label">Scan</span>
         </div>
       </div>
 
@@ -1848,6 +1858,49 @@
   </div>
 
   <!-- Modals -->
+
+  <!-- Modal scan turno da foto -->
+  <div class="modal" id="scanModal" role="dialog" aria-modal="true">
+    <div class="modal-sheet modal-sheet-scroll" style="width:min(500px,100%);">
+      <div class="modal-head">
+        <div class="modal-title"><i class="fa-solid fa-camera" style="margin-right:8px;color:var(--accent);"></i>Scansiona Turno</div>
+        <button class="icon-btn" id="closeScanModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="padding:14px 16px 0;">
+        <!-- API Key row -->
+        <div id="scanApiRow" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--ctrl-bg);border-radius:12px;border:1.5px solid var(--stroke);">
+          <i class="fa-solid fa-key" style="color:var(--accent);font-size:14px;flex-shrink:0;"></i>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Gemini API Key</div>
+            <input type="password" id="scanApiKeyInput" placeholder="AIzaSy..." autocomplete="off"
+              style="width:100%;box-sizing:border-box;background:none;border:none;outline:none;font-size:13px;font-weight:700;color:var(--text);font-family:inherit;" />
+          </div>
+          <button class="icon-btn btn-save" id="scanSaveKeyBtn" type="button" title="Salva chiave"><i class="fa-solid fa-floppy-disk"></i></button>
+        </div>
+        <!-- Drop zone -->
+        <div id="scanDropZone" class="scan-drop">
+          <input type="file" id="scanFileInput" accept="image/*" style="display:none;" />
+          <i class="fa-solid fa-image" style="font-size:30px;color:var(--accent);margin-bottom:10px;display:block;"></i>
+          <div style="font-weight:800;font-size:14px;">Carica la foto del turno</div>
+          <div style="font-size:12px;opacity:0.5;margin-top:4px;">Trascina qui o clicca per selezionare</div>
+        </div>
+        <!-- Preview -->
+        <div id="scanPreviewWrap" style="display:none;margin-top:10px;position:relative;">
+          <img id="scanPreview" style="width:100%;border-radius:12px;max-height:260px;object-fit:contain;background:#f1f5f9;" />
+          <button type="button" id="scanRemoveImg" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.55);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:#fff;font-size:13px;line-height:28px;text-align:center;">✕</button>
+        </div>
+      </div>
+      <div class="modal-actions" style="flex-direction:column;gap:8px;padding-top:12px;">
+        <button class="btn-primary-lg" id="scanAnalyzeBtn" type="button" disabled>
+          <i class="fa-solid fa-magnifying-glass-chart" style="margin-right:7px;"></i>Analizza turno
+        </button>
+        <div id="scanResultWrap" style="display:none;width:100%;"></div>
+        <button class="btn-primary-lg" id="scanApplyBtn" type="button" style="display:none;background:linear-gradient(135deg,rgba(34,197,94,0.9),rgba(21,128,61,0.9));">
+          <i class="fa-solid fa-wand-magic-sparkles" style="margin-right:7px;"></i>Applica alla matrice
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal matrice collega -->
   <div class="modal" id="colleagueMatrixModal" role="dialog" aria-modal="true">
@@ -3018,6 +3071,7 @@ function buildHolidayMapForYear(year){
           generated:          state.generated
         },
         rientriAnchors: TEAM_RIENTRO_ANCHORS,
+        geminiApiKey: _geminiApiKey,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
       _fbDb.doc(_FB_DOC).set(doc).catch(e => console.warn('[FB] save error:', e));
@@ -3069,6 +3123,9 @@ function buildHolidayMapForYear(year){
       // Rientri toggle (brand area)
       const rientriCtrl = document.getElementById('rientriCtrl');
       if(rientriCtrl) rientriCtrl.style.display = isAdmin ? '' : 'none';
+      // Scan toggle (brand area)
+      const scanCtrl = document.getElementById('scanCtrl');
+      if(scanCtrl) scanCtrl.style.display = isAdmin ? '' : 'none';
       // Admin-only cards — NON auto-mostrate, solo via pulsanti
       const swapC = document.getElementById('swapCard');
       const findC = document.getElementById('findColleagueCard');
@@ -3144,6 +3201,8 @@ function buildHolidayMapForYear(year){
       document.getElementById('rientriModalClose').addEventListener('click', ()=>closeModal('rientriModal'));
       document.getElementById('rientriCancelBtn').addEventListener('click', ()=>closeModal('rientriModal'));
       document.getElementById('rientriModal').addEventListener('click', e=>{ if(e.target.id==='rientriModal') closeModal('rientriModal'); });
+
+      document.getElementById('scanBtn').addEventListener('click', ()=> openModal('scanModal'));
 
       document.getElementById('adminLockBtn').addEventListener('click', ()=>{
         if(isAdminSession()){
@@ -3332,6 +3391,7 @@ function buildHolidayMapForYear(year){
 
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
+    let _geminiApiKey = '';
     let _colleagueViewMode = 'calendar'; // 'calendar' | 'cards' | 'table'
     let _colleagueViewYear = new Date().getFullYear();
 
@@ -4204,6 +4264,9 @@ function buildHolidayMapForYear(year){
         safeStorageSet('rientriAnchors', JSON.stringify(TEAM_RIENTRO_ANCHORS));
       }
 
+      // Gemini API key
+      if(fbData.geminiApiKey) _geminiApiKey = fbData.geminiApiKey;
+
       // Colleghi
       if(Array.isArray(fbData.colleghi)){
         state.colleghi = fbData.colleghi;
@@ -4264,6 +4327,7 @@ function buildHolidayMapForYear(year){
 
       bindColleagueModal();
       bindSearchByDate();
+      initScanModal();
 
       // Prova a caricare da Firestore (sovrascrive localStorage se ci sono dati più recenti)
       fbLoad().then(fbData => {
@@ -4792,6 +4856,177 @@ function buildHolidayMapForYear(year){
         closeModal('rientriModal');
         toast('Salvato', 'Rientri aggiornati.');
       };
+    }
+
+    function initScanModal(){
+      document.getElementById('closeScanModal').addEventListener('click', ()=> closeModal('scanModal'));
+      document.getElementById('scanModal').addEventListener('click', e=>{ if(e.target.id === 'scanModal') closeModal('scanModal'); });
+
+      const keyInp = document.getElementById('scanApiKeyInput');
+      if(_geminiApiKey) keyInp.value = _geminiApiKey;
+
+      document.getElementById('scanSaveKeyBtn').addEventListener('click', ()=>{
+        const v = keyInp.value.trim();
+        if(!v){ toast('Attenzione', 'Inserisci la API key.'); return; }
+        _geminiApiKey = v;
+        fbSave();
+        toast('Salvata', 'Gemini API key salvata.');
+      });
+
+      let _scanFile = null;
+      let _scanResult = null;
+
+      function resetScan(){
+        _scanFile = null; _scanResult = null;
+        document.getElementById('scanPreviewWrap').style.display = 'none';
+        document.getElementById('scanPreview').src = '';
+        document.getElementById('scanAnalyzeBtn').disabled = true;
+        document.getElementById('scanResultWrap').style.display = 'none';
+        document.getElementById('scanResultWrap').innerHTML = '';
+        document.getElementById('scanApplyBtn').style.display = 'none';
+      }
+
+      const dropZone = document.getElementById('scanDropZone');
+      const fileInput = document.getElementById('scanFileInput');
+
+      dropZone.addEventListener('click', ()=> fileInput.click());
+      dropZone.addEventListener('dragover', e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+      dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+      dropZone.addEventListener('drop', e=>{
+        e.preventDefault(); dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if(f && f.type.startsWith('image/')) handleFile(f);
+      });
+      fileInput.addEventListener('change', ()=>{
+        if(fileInput.files[0]) handleFile(fileInput.files[0]);
+        fileInput.value = '';
+      });
+      document.getElementById('scanRemoveImg').addEventListener('click', e=>{ e.stopPropagation(); resetScan(); });
+
+      function handleFile(file){
+        _scanFile = file;
+        document.getElementById('scanPreview').src = URL.createObjectURL(file);
+        document.getElementById('scanPreviewWrap').style.display = '';
+        document.getElementById('scanAnalyzeBtn').disabled = false;
+        document.getElementById('scanResultWrap').style.display = 'none';
+        document.getElementById('scanApplyBtn').style.display = 'none';
+      }
+
+      document.getElementById('scanAnalyzeBtn').addEventListener('click', async ()=>{
+        if(!_scanFile){ toast('Attenzione', "Carica prima un'immagine."); return; }
+        const key = keyInp.value.trim() || _geminiApiKey;
+        if(!key){ toast('Attenzione', 'Inserisci la Gemini API key.'); return; }
+        _geminiApiKey = key;
+        const btn = document.getElementById('scanAnalyzeBtn');
+        const oldHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Analisi in corso...';
+        btn.disabled = true;
+        try{
+          const base64 = await fileToBase64(_scanFile);
+          const extracted = await callGemini(base64, _scanFile.type, key);
+          _scanResult = matchScheduleToPattern(extracted.giorni || []);
+          showScanResult(_scanResult, extracted.giorni || []);
+        } catch(err){
+          const wrap = document.getElementById('scanResultWrap');
+          wrap.style.display = '';
+          wrap.innerHTML = `<div style="padding:12px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);border-radius:12px;font-size:13px;color:#ef4444;font-weight:700;"><i class="fa-solid fa-circle-xmark" style="margin-right:7px;"></i>${escapeHtml(err.message||String(err))}</div>`;
+        } finally{
+          btn.innerHTML = oldHtml;
+          btn.disabled = false;
+        }
+      });
+
+      document.getElementById('scanApplyBtn').addEventListener('click', ()=>{
+        if(!_scanResult) return;
+        const { role, anchorIndex } = _scanResult;
+        state.role = role;
+        state.anchorPatternIndex = anchorIndex;
+        state.generated = false;
+        setActiveRole(role);
+        localStorage.setItem('operatorRole', role);
+        localStorage.setItem('anchorPatternIndex', String(anchorIndex));
+        closeModal('scanModal');
+        syncStepsFromState();
+        stepOpen('hours');
+        toast('Applicato!', `${role === 'tutor' ? 'Tutor' : 'Dipendente'} · Opzione ${anchorIndex + 1} impostata. Ora seleziona ore e settimana di partenza.`);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    async function fileToBase64(file){
+      return new Promise((res, rej)=>{
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result.split(',')[1]);
+        reader.onerror = rej;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function callGemini(base64Image, mimeType, apiKey){
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const prompt = `Analizza questa immagine di un turno di lavoro settimanale.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
+      const body = {
+        contents:[{ parts:[
+          { text: prompt },
+          { inline_data:{ mime_type: mimeType, data: base64Image } }
+        ]}]
+      };
+      const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      if(!resp.ok){
+        const errText = await resp.text().catch(()=>'');
+        throw new Error(`Errore Gemini ${resp.status}: ${errText.slice(0,140)}`);
+      }
+      const data = await resp.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const clean = text.replace(/```json\s*/g,'').replace(/```\s*/g,'').trim();
+      try{ return JSON.parse(clean); }
+      catch(e){ throw new Error("Risposta non valida da Gemini. Usa un'immagine più chiara."); }
+    }
+
+    function matchScheduleToPattern(giorni){
+      const workDays = giorni.filter(g => !g.riposo);
+      const restDays = giorni.filter(g => g.riposo).map(g => g.giorno);
+      const freq = {};
+      workDays.forEach(g => { freq[g.inizio] = (freq[g.inizio]||0) + 1; });
+      const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+      function score(entry){
+        let s = 0;
+        if(entry.startTime === mainStart) s += 4;
+        entry.restDays.forEach(r => { if(restDays.includes(r)) s += 2; });
+        restDays.forEach(r => { if(entry.restDays.includes(r)) s += 1; });
+        return s;
+      }
+      let bestRole='dipendente', bestIdx=0, bestScore=-1;
+      DIPENDENTE_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='dipendente';bestIdx=i;} });
+      TUTOR_PATTERN.forEach((entry,i)=>{ const s=score(entry); if(s>bestScore){bestScore=s;bestRole='tutor';bestIdx=i;} });
+      return { role:bestRole, anchorIndex:bestIdx, mainStart, restDays };
+    }
+
+    function showScanResult(match, giorni){
+      const { role, anchorIndex } = match;
+      const pattern = role==='tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
+      const entry = pattern[anchorIndex];
+      const DOW_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+      const giorniHtml = DOW_IT.map(d => {
+        const g = giorni.find(x=>x.giorno===d);
+        if(!g) return `<div style="font-size:11px;padding:4px 8px;border-radius:6px;background:var(--ctrl-bg);opacity:0.4;">${d}<br>—</div>`;
+        if(g.riposo) return `<div style="font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(239,68,68,0.07);color:#ef4444;font-weight:700;">${d}<br>Riposo</div>`;
+        return `<div style="font-size:11px;padding:4px 8px;border-radius:6px;background:rgba(92,155,255,0.08);font-weight:700;">${d}<br>${escapeHtml(g.inizio||'')}</div>`;
+      }).join('');
+      const roleLabel = role==='tutor'?'Tutor':'Dipendente';
+      const html = `<div style="border:1.5px solid rgba(92,155,255,0.3);border-radius:14px;padding:14px;background:rgba(92,155,255,0.05);">
+        <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Turno rilevato</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">${giorniHtml}</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;font-weight:700;">
+          <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Ruolo: <strong>${roleLabel}</strong></div>
+          <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Opzione: <strong>${anchorIndex+1}</strong></div>
+          <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Inizio: <strong>${escapeHtml(entry.startTime)}</strong></div>
+          <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Riposi: <strong>${entry.restDays.join(', ')}</strong></div>
+        </div>
+      </div>`;
+      const wrap = document.getElementById('scanResultWrap');
+      wrap.innerHTML = html; wrap.style.display = '';
+      document.getElementById('scanApplyBtn').style.display = '';
     }
 
     function initSwap(){
