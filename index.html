@@ -1445,7 +1445,7 @@
         </div>
         <div class="ctrl" style="margin-left:6px;">
           <button class="icon-btn locked" id="adminLockBtn" type="button" aria-label="Accedi come admin" title="Accedi come admin">
-            <i class="fa-solid fa-lock"></i>
+            <i class="fa-solid fa-calendar-days"></i>
           </button>
           <span class="label" id="adminLabel">Admin</span>
         </div>
@@ -3045,7 +3045,6 @@ function buildHolidayMapForYear(year){
       if(lockBtn){
         lockBtn.className = 'icon-btn ' + (isAdmin ? 'unlocked' : 'locked');
         lockBtn.title = isAdmin ? 'Esci da admin' : 'Accedi come admin';
-        lockBtn.querySelector('i').className = isAdmin ? 'fa-solid fa-unlock' : 'fa-solid fa-lock';
       }
       // Topbar admin label
       const lbl = document.getElementById('adminLabel');
