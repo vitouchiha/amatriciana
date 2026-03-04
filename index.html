@@ -1263,6 +1263,8 @@
     .search-time-input:focus{ outline:none; border-color:rgba(92,155,255,0.5); }
     .badge-active{ background:rgba(92,155,255,0.15); color:#5c9bff; border:1px solid rgba(92,155,255,0.3); }
     .badge-offshift{ background:rgba(148,163,184,0.12); color:var(--muted); border:1px solid var(--stroke); }
+    .team-filter-chip{ padding:4px 12px; border-radius:999px; border:1.5px solid var(--stroke,#e2e8f0); background:var(--ctrl-bg); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer; transition:background .12s, color .12s, border-color .12s; }
+    .team-filter-chip.active{ background:var(--accent); color:#fff; border-color:var(--accent); }
     .team-list{ display:flex; flex-direction:column; gap:8px; }
     .colleague-row{
       display:flex; align-items:center; gap:12px;
@@ -1651,6 +1653,15 @@
           </button>
         </div>
         <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+            <input id="teamSearchInput" type="search" placeholder="&#xf002;  Cerca nome..." autocomplete="off"
+              style="width:100%;box-sizing:border-box;padding:8px 12px;border-radius:10px;border:1.5px solid var(--stroke,#e2e8f0);background:var(--ctrl-bg);color:var(--text);font-size:13px;font-weight:600;outline:none;font-family:inherit;" />
+            <div style="display:flex;gap:6px;flex-wrap:wrap;" id="teamRoleFilter">
+              <button class="team-filter-chip active" data-role="all" type="button">Tutti</button>
+              <button class="team-filter-chip" data-role="dipendente" type="button">Dipendente</button>
+              <button class="team-filter-chip" data-role="tutor" type="button">Tutor</button>
+            </div>
+          </div>
           <div class="team-list" id="teamList">
             <div class="note" id="teamEmpty" style="color:var(--muted); font-size:13px;">
               <i class="fa-regular fa-users" style="margin-right:6px;"></i>Nessun collega nel team.
@@ -3196,6 +3207,11 @@ function buildHolidayMapForYear(year){
       fbSave();
     }
 
+    // Filtri lista colleghi
+    let _teamFilter = { role: 'all', query: '' };
+    // Tiene traccia di quali group-key sono aperti/chiusi
+    const _teamGroupOpen = {};
+
     // Renderizza la lista team
     function renderTeamList(){
       const list = document.getElementById('teamList');
@@ -3204,8 +3220,23 @@ function buildHolidayMapForYear(year){
       const isAdmin = isAdminSession();
       Array.from(list.children).forEach(c => { if(c.id !== 'teamEmpty') c.remove(); });
 
-      if(!state.colleghi.length){
-        if(empty) empty.style.display = '';
+      // Applica filtri
+      const q = (_teamFilter.query || '').toLowerCase().trim();
+      const roleF = _teamFilter.role || 'all';
+      let filtered = state.colleghi.filter(c => {
+        if(roleF !== 'all' && (c.role || 'dipendente') !== roleF) return false;
+        if(q && !(c.name || '').toLowerCase().includes(q)) return false;
+        return true;
+      });
+
+      const noResults = !filtered.length;
+      if(noResults){
+        if(empty){
+          empty.style.display = '';
+          empty.innerHTML = q || roleF !== 'all'
+            ? `<i class="fa-solid fa-magnifying-glass" style="margin-right:6px;"></i>Nessun risultato.`
+            : `<i class="fa-regular fa-users" style="margin-right:6px;"></i>Nessun collega nel team.`;
+        }
         refreshSwapReadiness();
         return;
       }
@@ -3213,7 +3244,7 @@ function buildHolidayMapForYear(year){
 
       // Raggruppa per ruolo + team
       const groups = new Map();
-      state.colleghi.forEach(c => {
+      filtered.forEach(c => {
         const roleKey = c.role || 'dipendente';
         const key = c.team ? `${roleKey}_${c.team}` : '__nessun_team';
         if(!groups.has(key)) groups.set(key, { role: roleKey, team: c.team || null, members: [] });
@@ -3238,7 +3269,9 @@ function buildHolidayMapForYear(year){
 
         const details = document.createElement('details');
         details.style.cssText = 'border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; margin-bottom:6px;';
-        details.open = true;
+        // Preserve open/close state; default open
+        details.open = key in _teamGroupOpen ? _teamGroupOpen[key] : true;
+        details.addEventListener('toggle', () => { _teamGroupOpen[key] = details.open; });
 
         const summary = document.createElement('summary');
         summary.style.cssText = 'display:flex; align-items:center; justify-content:space-between; padding:9px 12px; font-size:12px; font-weight:900; cursor:pointer; user-select:none; background:var(--ctrl-bg); list-style:none; gap:8px;';
@@ -4173,6 +4206,24 @@ function buildHolidayMapForYear(year){
 
       const addBtn = document.getElementById('addColleagueBtn');
       if(addBtn) addBtn.addEventListener('click', () => openColleagueModal(null));
+
+      // Search + role filter
+      const searchInp = document.getElementById('teamSearchInput');
+      if(searchInp){
+        searchInp.addEventListener('input', () => {
+          _teamFilter.query = searchInp.value;
+          renderTeamList();
+        });
+      }
+      const roleFilterBtns = document.querySelectorAll('#teamRoleFilter .team-filter-chip');
+      roleFilterBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          roleFilterBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          _teamFilter.role = btn.dataset.role;
+          renderTeamList();
+        });
+      });
 
       bindColleagueModal();
       bindSearchByDate();
