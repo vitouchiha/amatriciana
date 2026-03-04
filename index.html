@@ -5038,7 +5038,7 @@ function buildHolidayMapForYear(year){
 
     async function callGemini(base64Image, mimeType, apiKey, role, team){
       // modelli in ordine di fallback (quota più generosa prima)
-      const MODELS = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-flash-8b'];
+      const MODELS = ['gemini-2.0-flash-lite','gemini-2.0-flash','gemini-1.5-flash'];
       const roleHint = role === 'tutor' ? 'Tutor' : 'Dipendente';
       const teamHint = (team && team !== 'N/A') ? ` del team "${team}"` : '';
       const prompt = `Analizza questa immagine di un turno di lavoro settimanale. L'utente è un ${roleHint}${teamHint}.\nPer ogni giorno della settimana (Lun=Lunedì, Mar=Martedì, Mer=Mercoledì, Gio=Giovedì, Ven=Venerdì, Sab=Sabato, Dom=Domenica) indica se è un giorno di riposo oppure lavoro, e se lavoro l'ora di inizio e fine turno.\nRispondi SOLAMENTE con un oggetto JSON valido senza blocchi markdown, in questo formato esatto:\n{"giorni": [{"giorno":"Lun","riposo":false,"inizio":"09:30","fine":"15:30"},{"giorno":"Mar","riposo":true},...] }\nNon aggiungere testo prima o dopo il JSON.`;
