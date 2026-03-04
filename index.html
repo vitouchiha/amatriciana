@@ -5034,79 +5034,76 @@ function buildHolidayMapForYear(year){
       });
 
       const DOW_IT = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
-      const timeRe = /^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/;
-      const parseT = s => { const m=s.match(/^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/); return m?`${m[1].padStart(2,'0')}:${m[2]}`:null; };
+      const DOW_MAP = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+      const parseT = s => {
+        const m = s.match(/^(2[0-3]|[01]?[0-9])[.:]([0-5][0-9])$/);
+        return m ? `${m[1].padStart(2,'0')}:${m[2]}` : null;
+      };
 
-      // Filtra parole con confidenza accettabile
-      const words = (data.words||[]).filter(w => w.confidence > 20 && w.text.trim().length >= 2);
+      const words = (data.words||[]).filter(w => w.confidence > 15 && w.text.trim().length >= 2);
+      const cx = w => (w.bbox.x0 + w.bbox.x1) / 2;
+      const cy = w => (w.bbox.y0 + w.bbox.y1) / 2;
 
-      // Parole che sono orari
-      const timeWords = words.filter(w => timeRe.test(w.text.trim()));
+      // Trova tutti i numeri-data nella riga superiore
+      const maxY = Math.max(...words.map(w => w.bbox.y1), 400);
+      const topThr = maxY * 0.38;
+      const dateWords = words
+        .filter(w => /^\d{1,2}$/.test(w.text.trim()) && +w.text >= 1 && +w.text <= 31 && cy(w) < topThr)
+        .sort((a,b) => cx(a) - cx(b))
+        // Rimuovi duplicati X (stessa data rilevata 2 volte vicino)
+        .filter((w,i,arr) => i===0 || cx(w) - cx(arr[i-1]) > 15);
+
+      if(dateWords.length < 2) throw new Error("Impossibile rilevare le colonne-data. Usa un'immagine più nitida con le date ben visibili.");
+
+      // Costruisce zone di Voronoi: ogni colonna va da midpoint sinistro a midpoint destro
+      const dateXs = dateWords.map(cx);
+      const zones = dateXs.map((x, i) => {
+        const left  = i === 0 ? -Infinity : (x + dateXs[i-1]) / 2;
+        const right = i === dateXs.length-1 ? Infinity : (x + dateXs[i+1]) / 2;
+        return { num: +dateWords[i].text, left, right };
+      });
+
+      // Tutti gli orari non-zero trovati nel documento
+      const timeWords = words.filter(w => parseT(w.text.trim()) && parseT(w.text.trim()) !== '00:00');
       if(timeWords.length === 0) throw new Error("Nessun orario trovato. Usa un'immagine più nitida.");
 
-      // Orario più frequente (escludendo 00:00)
+      // Orario inizio più frequente
       const freq = {};
-      timeWords.forEach(w => { const t=parseT(w.text.trim()); if(t && t!=='00:00') freq[t]=(freq[t]||0)+1; });
-      if(!Object.keys(freq).length) throw new Error("Nessun orario di inizio trovato.");
+      timeWords.forEach(w => { const t=parseT(w.text.trim()); freq[t]=(freq[t]||0)+1; });
       const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
 
-      // Dimensioni immagine dai bbox delle parole
-      const allX = words.flatMap(w=>[w.bbox.x0,w.bbox.x1]);
-      const allY = words.flatMap(w=>[w.bbox.y0,w.bbox.y1]);
-      const maxX = Math.max(...allX)||700;
-      const maxY = Math.max(...allY)||400;
+      // Assegna ogni orario alla sua zona-colonna
+      const workZoneNums = new Set();
+      timeWords.forEach(w => {
+        const x = cx(w);
+        const zone = zones.find(z => x >= z.left && x < z.right);
+        if(zone) workZoneNums.add(zone.num);
+      });
 
-      // Riga di intestazione = numeri da 1-31 nel quarto superiore
-      const topThreshold = maxY * 0.30;
-      const dateWords = words.filter(w=>{
-        const n=parseInt(w.text.trim());
-        return /^\d{1,2}$/.test(w.text.trim()) && n>=1 && n<=31 && (w.bbox.y0+w.bbox.y1)/2 < topThreshold;
-      }).sort((a,b)=>a.bbox.x0-b.bbox.x0);
+      // Date senza orari = riposo
+      const restNums = zones.map(z=>z.num).filter(n => !workZoneNums.has(n));
 
-      // Centro-x degli orari di lavoro (non 00:00)
-      const workTimeCenters = timeWords
-        .filter(w=>{ const t=parseT(w.text.trim()); return t && t!=='00:00'; })
-        .map(w=>(w.bbox.x0+w.bbox.x1)/2);
-
-      let restDays = [];
-
-      if(dateWords.length >= 3){
-        // Tolleranza colonna = metà della larghezza media tra date adiacenti
-        const dateXs = dateWords.map(d=>(d.bbox.x0+d.bbox.x1)/2);
-        const gaps = dateXs.slice(1).map((x,i)=>x-dateXs[i]);
-        const avgGap = gaps.reduce((a,b)=>a+b,0)/(gaps.length||1);
-        const tol = Math.max(30, avgGap * 0.55);
-
-        // Date che NON hanno un orario nella loro colonna = riposo
-        const restDateNums = dateWords.filter(d=>{
-          const dx=(d.bbox.x0+d.bbox.x1)/2;
-          return !workTimeCenters.some(tx=>Math.abs(tx-dx)<tol);
-        }).map(d=>parseInt(d.text.trim()));
-
-        // Convertiamo numero-giorno → giorno della settimana
-        // Usiamo le date consecutive per dedurre il mese
-        const allNums = dateWords.map(d=>parseInt(d.text.trim())).sort((a,b)=>a-b);
-        const now = new Date();
-        // Prova mese corrente e i 3 precedenti (mese più recente prima)
-        for(let off=0; off<=3; off++){
-          const d0 = new Date(now.getFullYear(), now.getMonth()-off, 1);
-          const yr = d0.getFullYear(), mo = d0.getMonth();
-          // Verifica che i numeri trovati siano date valide in quel mese
-          const daysInMonth = new Date(yr, mo+1, 0).getDate();
-          if(allNums.some(n=>n>daysInMonth)) continue;
-          // Verifica sequenzialità: almeno 2 numeri consecutivi
-          const isSeq = allNums.slice(1).some((n,i)=>n-allNums[i]===1);
-          if(!isSeq && allNums.length < 4) continue;
-          const DOW_MAP = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
-          restDateNums.forEach(n=>{
-            const dow = DOW_MAP[new Date(yr,mo,n).getDay()];
-            if(!restDays.includes(dow)) restDays.push(dow);
-          });
-          if(restDays.length>0) break;
-        }
+      // Converti numeri-data in giorno della settimana
+      const restDays = [];
+      const allNums = zones.map(z=>z.num).sort((a,b)=>a-b);
+      const now = new Date();
+      let resolved = false;
+      for(let off=0; off<=4 && !resolved; off++){
+        const d0 = new Date(now.getFullYear(), now.getMonth()-off, 1);
+        const yr = d0.getFullYear(), mo = d0.getMonth();
+        const dim = new Date(yr, mo+1, 0).getDate();
+        if(allNums.some(n => n > dim)) continue;
+        // Verifica coerenza: almeno 2 consecutivi o >=4 presenti
+        const seq = allNums.slice(1).some((n,i) => n-allNums[i]===1);
+        if(!seq && allNums.length < 4) continue;
+        restNums.forEach(n => {
+          const dow = DOW_MAP[new Date(yr, mo, n).getDay()];
+          if(!restDays.includes(dow)) restDays.push(dow);
+        });
+        resolved = true;
       }
 
-      const giorni = DOW_IT.map(d=>(
+      const giorni = DOW_IT.map(d => (
         restDays.includes(d)
           ? { giorno:d, riposo:true }
           : { giorno:d, riposo:false, inizio:mainStart, fine:'00:00' }
