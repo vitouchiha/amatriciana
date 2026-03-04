@@ -5050,7 +5050,7 @@ function buildHolidayMapForYear(year){
       };
       let lastErr = null;
       for(const model of MODELS){
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent?key=${apiKey}`;
         try{
           const resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
           if(resp.status === 429){
