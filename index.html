@@ -1648,23 +1648,47 @@
         </div>
       </section>
 
-      <!-- Cerca per data e orario -->
+      <!-- Cerca Orario Generico -->
       <section class="card" id="searchDateCard" style="display:none;">
         <div class="card-head">
           <div>
-            <div class="card-title">Cerca per orario</div>
-            <div class="card-sub">Chi è in turno in un giorno e orario specifico?</div>
+            <div class="card-title">Cerca Orario Generico</div>
+            <div class="card-sub">Trova colleghi per ruolo, giorno e fascia oraria.</div>
           </div>
         </div>
         <div class="card-body">
-          <div class="search-date-bar">
-            <input type="date" class="search-date-input" id="searchDateInput" style="flex:1;" />
-            <input type="time" class="search-time-input" id="searchTimeInput" />
-            <button class="icon-btn" id="searchDateBtn" type="button" aria-label="Cerca">
-              <i class="fa-solid fa-magnifying-glass"></i>
-            </button>
+          <div class="controls-grid" style="gap:8px;margin-bottom:8px;">
+            <div class="ctrl-item">
+              <span class="control-label">Tipo</span>
+              <div class="segmented" id="searchRoleSegment" role="group">
+                <button type="button" data-role="dipendente" aria-pressed="true">Dipendente</button>
+                <button type="button" data-role="tutor" aria-pressed="false">Tutor</button>
+              </div>
+            </div>
+            <div class="ctrl-item" style="flex:1 1 150px;min-width:150px;">
+              <span class="control-label">Giorno</span>
+              <input type="date" id="searchDateHidden" style="display:none;" />
+              <button type="button" class="swap-date-trigger" id="searchDateTriggerBtn">
+                <i class="fa-regular fa-calendar"></i>
+                <span id="searchDateLbl">Seleziona data</span>
+              </button>
+            </div>
           </div>
-          <div class="search-results" id="searchResults" style="display:none;"></div>
+          <div style="margin:4px 0 8px;">
+            <div style="font-size:10px;font-weight:900;opacity:0.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Fascia oraria</div>
+            <div id="searchShiftPills" style="display:flex;flex-wrap:wrap;gap:6px;">
+              <button type="button" class="swap-day-pill" data-shift="06:00">06:00</button>
+              <button type="button" class="swap-day-pill" data-shift="08:00">08:00</button>
+              <button type="button" class="swap-day-pill" data-shift="11:00">11:00</button>
+              <button type="button" class="swap-day-pill" data-shift="12:00">12:00</button>
+              <button type="button" class="swap-day-pill" data-shift="15:00">15:00</button>
+              <button type="button" class="swap-day-pill" data-shift="18:00">18:00</button>
+            </div>
+          </div>
+          <button class="btn ok-btn" id="searchDateBtn" type="button" style="margin-top:4px;">
+            <i class="fa-solid fa-magnifying-glass"></i> Cerca
+          </button>
+          <div class="search-results" id="searchResults" style="display:none;margin-top:12px;"></div>
         </div>
       </section>
 
@@ -3694,7 +3718,7 @@ function buildHolidayMapForYear(year){
     }
 
     // Cerca chi lavora in un dato giorno (e opzionalmente a un dato orario)
-    function renderSearchResults(targetISO, queryTime){
+    function renderSearchResults(targetISO, queryTime, filterRole){
       const el = document.getElementById('searchResults');
       if(!el) return;
       el.style.display = 'block';
@@ -3708,82 +3732,125 @@ function buildHolidayMapForYear(year){
       head.innerHTML = `<i class="fa-regular fa-calendar"></i>${dateLabel}${queryTime ? ` &nbsp;<i class="fa-regular fa-clock" style="margin-left:4px"></i> ${queryTime}` : ''}`;
       el.appendChild(head);
 
-      // Soggetti: tu (se generato) + team
+      // Soggetti filtrati per ruolo
       const subjects = [];
       if(state.generated && state.startWeekISO && state.anchorPatternIndex !== null){
-        subjects.push({
-          name: 'Tu',
-          cfg: { role: state.role, durationMinutes: state.durationMinutes, startWeekISO: state.startWeekISO, anchorPatternIndex: state.anchorPatternIndex }
-        });
+        if(!filterRole || state.role === filterRole){
+          subjects.push({
+            name: 'Tu',
+            cfg: { role: state.role, durationMinutes: state.durationMinutes, startWeekISO: state.startWeekISO, anchorPatternIndex: state.anchorPatternIndex }
+          });
+        }
       }
-      state.colleghi.forEach(c => subjects.push({ name: c.name, cfg: c }));
+      state.colleghi.forEach(c => {
+        if(!filterRole || c.role === filterRole) subjects.push({ name: c.name, cfg: c });
+      });
 
       if(!subjects.length){
         const note = document.createElement('div');
         note.className = 'no-results-note';
-        note.textContent = 'Genera prima la tua matrice o aggiungi colleghi al team.';
+        note.textContent = filterRole
+          ? `Nessun collega ${filterRole} configurato.`
+          : 'Genera prima la tua matrice o aggiungi colleghi al team.';
         el.appendChild(note);
         return;
       }
 
+      function timeToMin(t){ const [h,m]=t.split(':').map(Number); return h*60+m; }
+      const selMin = queryTime ? timeToMin(queryTime) : null;
+
+      // Categorize
+      const inTurno = [], fuoriOrario = [], libero = [], fuoriPeriodo = [];
       subjects.forEach(s => {
         const day = getScheduleOnDate(s.cfg, targetISO);
         const initial = s.name.charAt(0).toUpperCase();
-        let badgeClass, badgeText, timeText = '';
-
         if(!day){
-          badgeClass = 'badge-out'; badgeText = 'Fuori periodo';
-        } else if(day.isHoliday){
-          badgeClass = 'badge-holiday'; badgeText = `Festivo — ${day.holidayName}`; timeText = `${day.start}–${day.end}`;
-        } else if(day.isRest){
-          badgeClass = 'badge-rest'; badgeText = 'Libero';
+          fuoriPeriodo.push({ s, day, badgeClass:'badge-out', badgeText:'Fuori periodo', timeText:'' });
+        } else if(day.isRest || day.isHoliday){
+          const bc = day.isHoliday ? 'badge-holiday' : 'badge-rest';
+          const bt = day.isHoliday ? `Festivo — ${day.holidayName}` : 'Libero';
+          libero.push({ s, day, badgeClass:bc, badgeText:bt, timeText: day.isHoliday ? `${day.start}–${day.end}` : '' });
         } else {
-          // Giorno lavorativo
-          timeText = `${day.start}–${day.end}`;
-          if(queryTime){
-            // Con filtro orario
-            if(timeInShift(day.start, day.end, queryTime)){
-              badgeClass = 'badge-active'; badgeText = 'In turno ✔';
-            } else {
-              badgeClass = 'badge-offshift'; badgeText = 'Fuori orario';
-            }
+          const timeText = `${day.start}–${day.end}`;
+          if(queryTime && timeInShift(day.start, day.end, queryTime)){
+            inTurno.push({ s, day, badgeClass:'badge-active', badgeText:'In turno ✔', timeText });
+          } else if(queryTime){
+            const dist = Math.abs(timeToMin(day.start) - selMin);
+            fuoriOrario.push({ s, day, badgeClass:'badge-offshift', badgeText:'Fuori orario', timeText, dist });
           } else {
-            badgeClass = 'badge-work'; badgeText = 'Lavora';
+            inTurno.push({ s, day, badgeClass:'badge-work', badgeText:'Lavora', timeText });
           }
         }
+      });
+      fuoriOrario.sort((a,b) => a.dist - b.dist);
 
+      function renderRow(item){
         const row = document.createElement('div');
         row.className = 'sr-row';
+        const initial = item.s.name.charAt(0).toUpperCase();
         row.innerHTML = `
           <div class="sr-avatar">${escapeHtml(initial)}</div>
-          <div class="sr-name">${escapeHtml(s.name)}</div>
-          ${timeText ? `<div class="sr-time">${timeText}</div>` : ''}
-          <span class="sr-badge ${badgeClass}">${badgeText}</span>`;
+          <div class="sr-name">${escapeHtml(item.s.name)}</div>
+          ${item.timeText ? `<div class="sr-time">${item.timeText}</div>` : ''}
+          <span class="sr-badge ${item.badgeClass}">${item.badgeText}</span>`;
         el.appendChild(row);
-      });
+      }
+
+      function renderGroup(items, label){
+        if(!items.length) return;
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.06em;margin:12px 0 4px;padding-bottom:3px;border-bottom:1px solid var(--stroke);';
+        hdr.textContent = label;
+        el.appendChild(hdr);
+        items.forEach(renderRow);
+      }
+
+      renderGroup(inTurno, queryTime ? 'In turno' : 'Lavora');
+      renderGroup(fuoriOrario, 'Fuori orario');
+      renderGroup(libero, 'Libero');
+      renderGroup(fuoriPeriodo, 'Fuori periodo');
     }
 
     function bindSearchByDate(){
-      const dateInput = document.getElementById('searchDateInput');
-      const timeInput = document.getElementById('searchTimeInput');
       const btn = document.getElementById('searchDateBtn');
-      if(!dateInput || !btn) return;
+      const triggerBtn = document.getElementById('searchDateTriggerBtn');
+      if(!btn) return;
 
-      // Precompila con oggi e ora attuale
-      dateInput.value = isoDate(new Date());
-      const now = new Date();
-      timeInput.value = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+      // Pre-fill date con oggi
+      const todayISO = isoDate(new Date());
+      document.getElementById('searchDateHidden').value = todayISO;
+      document.getElementById('searchDateLbl').textContent =
+        (window._fmtCalIT ? window._fmtCalIT(todayISO) : todayISO);
 
-      const doSearch = () => {
-        if(!dateInput.value) return;
-        const qt = timeInput && timeInput.value ? timeInput.value : null;
-        renderSearchResults(dateInput.value, qt);
-      };
+      // Date trigger → apri il calendario condiviso
+      if(triggerBtn) triggerBtn.addEventListener('click', () => {
+        if(window._openSwapCal) window._openSwapCal('searchDateHidden', 'Giorno da cercare', 'searchDateLbl');
+      });
 
-      btn.addEventListener('click', doSearch);
-      dateInput.addEventListener('change', doSearch);
-      timeInput.addEventListener('change', doSearch);
-      dateInput.addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
+      // Role segment
+      document.querySelectorAll('#searchRoleSegment button').forEach(b => {
+        b.addEventListener('click', () => {
+          document.querySelectorAll('#searchRoleSegment button').forEach(x => x.setAttribute('aria-pressed', x===b?'true':'false'));
+        });
+      });
+
+      // Shift pills — selezione singola
+      document.querySelectorAll('#searchShiftPills .swap-day-pill').forEach(p => {
+        p.addEventListener('click', () => {
+          document.querySelectorAll('#searchShiftPills .swap-day-pill').forEach(x => x.classList.remove('active'));
+          p.classList.toggle('active', true);
+        });
+      });
+
+      btn.addEventListener('click', () => {
+        const dateVal = document.getElementById('searchDateHidden').value;
+        if(!dateVal){ toast('Attenzione', 'Seleziona un giorno.'); return; }
+        const activePill = document.querySelector('#searchShiftPills .swap-day-pill.active');
+        const selectedShift = activePill ? activePill.dataset.shift : null;
+        const rolBtn = document.querySelector('#searchRoleSegment button[aria-pressed="true"]');
+        const filterRole = rolBtn ? rolBtn.dataset.role : null;
+        renderSearchResults(dateVal, selectedShift, filterRole);
+      });
     }
 
     // Applica dati Firebase allo state e aggiorna la UI
@@ -4176,7 +4243,7 @@ function buildHolidayMapForYear(year){
       const SHIFTS = ['06:00','08:00','11:00','12:00','15:00','18:00'];
 
       // ---- Calendar ----
-      let calTarget = null, calYear, calMonth;
+      let calTarget = null, calLabelId = null, calYear, calMonth;
 
       function fmtIT(iso){
         if(!iso) return 'Seleziona data';
@@ -4222,12 +4289,12 @@ function buildHolidayMapForYear(year){
           if(iso===curVal) b.classList.add('scd-sel');
           b.addEventListener('click',()=>{
             document.getElementById(calTarget).value=iso;
-            if(calTarget==='swapMyDate'){
-              document.getElementById('swapMyDateLbl').textContent=fmtIT(iso);
-              syncMonthOnMyDate(iso);
-            } else {
-              document.getElementById('swapTargetDateLbl').textContent=fmtIT(iso);
-            }
+            // update label: specific known labels or generic calLabelId
+            const lbl = calLabelId ? document.getElementById(calLabelId) :
+              (calTarget==='swapMyDate' ? document.getElementById('swapMyDateLbl') :
+               calTarget==='swapTargetDate' ? document.getElementById('swapTargetDateLbl') : null);
+            if(lbl) lbl.textContent=fmtIT(iso);
+            if(calTarget==='swapMyDate') syncMonthOnMyDate(iso);
             document.getElementById('swapCalModal').style.display='none';
           });
           grid.appendChild(b);
@@ -4239,8 +4306,9 @@ function buildHolidayMapForYear(year){
         }
       }
 
-      function openCal(targetId, title){
+      function openCal(targetId, title, labelId){
         calTarget=targetId;
+        calLabelId=labelId||null;
         document.getElementById('swapCalTitle').textContent=title;
         const existing=document.getElementById(targetId).value;
         const d=existing?new Date(existing+'T00:00:00'):new Date();
@@ -4253,6 +4321,9 @@ function buildHolidayMapForYear(year){
       document.getElementById('swapTargetDateBtn').addEventListener('click',()=>openCal('swapTargetDate','Il giorno che vuoi'));
       document.getElementById('swapCalCloseBtn').addEventListener('click',()=>{ document.getElementById('swapCalModal').style.display='none'; });
       document.getElementById('swapCalModal').addEventListener('click',function(e){ if(e.target===this) this.style.display='none'; });
+      // Expose for other pickers (e.g. searchDateCard)
+      window._openSwapCal = openCal;
+      window._fmtCalIT = fmtIT;
       document.getElementById('swapCalPrev').addEventListener('click',()=>{ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal(); });
       document.getElementById('swapCalNext').addEventListener('click',()=>{ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal(); });
 
