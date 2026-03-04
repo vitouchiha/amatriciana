@@ -806,11 +806,6 @@
     html[data-theme="dark"] .modal-item{background: rgba(16,18,27,0.60); border: 1px solid rgba(255,255,255,0.10);}
     .modal-item[aria-current="true"]{outline: 2px solid rgba(92,155,255,0.55);}
 
-    /* Export anno successivo — dropdown anni */
-    .year-export-dd{ background:var(--card-bg,#fff); padding:5px 0; }
-    .year-export-item{ display:block; width:100%; padding:8px 16px; font-size:13px; font-weight:700; text-align:left; background:none; border:0; cursor:pointer; color:var(--text,#0b1020); transition:background .1s; }
-    .year-export-item:hover{ background:var(--accent,#5c9bff); color:#fff; }
-
     /* Export cleanup */
     .export-root{
       background: #fff;
@@ -1874,11 +1869,10 @@
           <button class="icon-btn btn-save" id="saveCollegueMatrixBtn" type="button" aria-label="Salva PDF" title="Salva PDF">
             <i class="fa-solid fa-download"></i>
           </button>
-          <div id="exportNextYearWrap" style="display:none;position:relative;">
-            <button class="icon-btn" id="exportNextYearBtn" type="button" aria-label="Esporta anno successivo" title="Esporta anno successivo">
-              <i class="fa-solid fa-calendar-plus"></i>
+          <div id="exportIcsWrap" style="display:none;">
+            <button class="icon-btn" id="exportIcsBtn" type="button" aria-label="Esporta per Google/Apple Calendar" title="Esporta per Google/Apple Calendar (.ics)">
+              <i class="fa-regular fa-calendar-check"></i>
             </button>
-            <div id="exportYearDropdown" style="display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:1200;border-radius:12px;overflow:hidden;border:1.5px solid var(--stroke,#e2e8f0);box-shadow:0 8px 28px rgba(0,0,0,0.18);min-width:140px;"></div>
           </div>
           <button class="icon-btn" id="closeColleagueMatrixModal" aria-label="Chiudi"><i class="fa-solid fa-xmark"></i></button>
         </div>
@@ -3077,9 +3071,9 @@ function buildHolidayMapForYear(year){
       if(!isAdmin && findC) findC.style.display = 'none';
       if(!isAdmin && teamC) teamC.style.display = 'none';
       if(!isAdmin && srchC) srchC.style.display = 'none';
-      // Export anno successivo (matrice collega)
-      const exportYearWrap = document.getElementById('exportNextYearWrap');
-      if(exportYearWrap) exportYearWrap.style.display = isAdmin ? '' : 'none';
+      // Export ICS (matrice collega)
+      const exportIcsWrap = document.getElementById('exportIcsWrap');
+      if(exportIcsWrap) exportIcsWrap.style.display = isAdmin ? '' : 'none';
       // Re-render team list per mostrare/nascondere edit+delete
       renderTeamList();
     }
@@ -3734,27 +3728,55 @@ function buildHolidayMapForYear(year){
       };
     }
 
-    async function exportColleagueForYear(year){
+    function exportColleagueIcs(){
       if(!_viewedColleague) return;
-      const cfg = computeCfgForYear(_viewedColleague, year);
-      const yearWeekCount = computeTutorWeekCount(cfg.startWeekISO);
-      const btn = document.getElementById('exportNextYearBtn');
-      if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-spinner fa-spin'; }
-      try{
-        const node = buildCalendarExportNodeForCfg(cfg, yearWeekCount);
-        node.style.position='fixed'; node.style.left='-99999px'; node.style.top='0';
-        document.body.appendChild(node);
-        const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
-        node.remove();
-        const blob = canvasToPdfBlob(canvas);
-        const safeName = (_viewedColleague.name||'collega').toLowerCase().replace(/\s+/g,'-');
-        _downloadBlob(blob, `matrice-${safeName}-${year}.pdf`);
-        toast('Salvata!', `Matrice ${year} di ${_viewedColleague.name}`);
-      } catch(e){
-        toast('Errore', 'Export non riuscito.');
-      } finally {
-        if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-calendar-plus'; }
-      }
+      const yearCfg = computeCfgForYear(_viewedColleague, _colleagueViewYear);
+      const yearWeekCount = computeTutorWeekCount(yearCfg.startWeekISO);
+      const weeks = buildMatrixDataForConfig(yearCfg, yearWeekCount);
+      const name = _viewedColleague.name || 'Collega';
+      const safeName = name.toLowerCase().replace(/\s+/g,'-');
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Matrice Visual//IT',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+        `X-WR-CALNAME:Turni ${name} ${_colleagueViewYear}`,
+      ];
+      weeks.forEach(week => {
+        week.days.forEach(day => {
+          if(!day || day.isRest) return;
+          if(day.dateObj.getFullYear() !== _colleagueViewYear) return;
+          const iso = isoDate(day.dateObj);
+          const [yd, md, dd2] = iso.split('-').map(Number);
+          const dateStr = `${yd}${String(md).padStart(2,'0')}${String(dd2).padStart(2,'0')}`;
+          const [sh, sm] = day.start.split(':').map(Number);
+          const startTime = `${dateStr}T${String(sh).padStart(2,'0')}${String(sm).padStart(2,'0')}00`;
+          let endTime;
+          if(day.end === '00:00'){
+            const nextD = addDays(day.dateObj, 1);
+            const nIso = isoDate(nextD);
+            const [ny, nm, nd3] = nIso.split('-').map(Number);
+            endTime = `${ny}${String(nm).padStart(2,'0')}${String(nd3).padStart(2,'0')}T000000`;
+          } else {
+            const [eh, em] = day.end.split(':').map(Number);
+            endTime = `${dateStr}T${String(eh).padStart(2,'0')}${String(em).padStart(2,'0')}00`;
+          }
+          let summary = `Turno ${day.start}\u2013${day.end}`;
+          if(day.isRientro) summary += ' (Rientro)';
+          if(day.isHoliday) summary += ` \u00b7 ${day.holidayName}`;
+          lines.push('BEGIN:VEVENT');
+          lines.push(`DTSTART:${startTime}`);
+          lines.push(`DTEND:${endTime}`);
+          lines.push(`SUMMARY:${summary}`);
+          lines.push(`UID:${dateStr}-${safeName}-@matrice-visual`);
+          lines.push('END:VEVENT');
+        });
+      });
+      lines.push('END:VCALENDAR');
+      const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+      _downloadBlob(blob, `turni-${safeName}-${_colleagueViewYear}.ics`);
+      toast('Esportato!', `Importa turni-${name} ${_colleagueViewYear}.ics in Google o Apple Calendar`);
     }
 
     async function saveColleaguePng(){
@@ -5573,31 +5595,8 @@ function buildHolidayMapForYear(year){
         if(_colleagueViewYear < maxYear){ _colleagueViewYear++; _updateColleagueYearLabel(); renderColleagueBody(); }
       });
 
-      // Export anni successivi — dropdown
-      document.getElementById('exportNextYearBtn').addEventListener('click', e=>{
-        e.stopPropagation();
-        const dd = document.getElementById('exportYearDropdown');
-        if(dd.style.display !== 'none'){ dd.style.display='none'; return; }
-        if(!_viewedColleague) return;
-        const baseYear = parseISODate(_viewedColleague.startWeekISO).getFullYear();
-        dd.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.className = 'year-export-dd';
-        for(let y = baseYear + 1; y <= baseYear + 5; y++){
-          const item = document.createElement('button');
-          item.type = 'button';
-          item.className = 'year-export-item';
-          item.innerHTML = `<i class="fa-regular fa-calendar" style="margin-right:7px;"></i>${y}`;
-          item.addEventListener('click', ()=>{ dd.style.display='none'; exportColleagueForYear(y); });
-          wrap.appendChild(item);
-        }
-        dd.appendChild(wrap);
-        dd.style.display = '';
-      });
-      document.addEventListener('click', ()=>{
-        const dd = document.getElementById('exportYearDropdown');
-        if(dd) dd.style.display = 'none';
-      });
+      // Export ICS (Google/Apple Calendar)
+      document.getElementById('exportIcsBtn').addEventListener('click', ()=> exportColleagueIcs());
       // Toggle calendario / schede / tabella
       const _allToggleBtns = ['toggleCalBtn','toggleCardsBtn','toggleTblBtn'];
       function _setColleagueToggle(active){
