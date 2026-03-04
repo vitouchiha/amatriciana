@@ -4695,17 +4695,9 @@ function buildHolidayMapForYear(year){
       // ---- Time picker ----
       let timeTarget = null;
 
-      function renderTimeGrid(curVal){
+      function renderTimeGrid(curVal, role){
         const grid=document.getElementById('swapTimeGrid'); grid.innerHTML='';
-        // Ruolo corrente: dalla matrice generata oppure dal segmento manuale
-        const useOwn = state.generated && state.anchorPatternIndex !== null;
-        let _role;
-        if(useOwn){
-          _role = state.role;
-        } else {
-          const rolBtn = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
-          _role = rolBtn ? rolBtn.getAttribute('data-role') : 'dipendente';
-        }
+        const _role = role || 'dipendente';
         const _pattern = _role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
         const _dur = state.durationMinutes || 360;
         const _starts = [...new Set(_pattern.map(p=>p.startTime))].sort((a,b)=>{
@@ -4730,10 +4722,18 @@ function buildHolidayMapForYear(year){
         });
       }
 
+      function _getSwapRole(){
+        // Segmento manuale ha priorità; fallback a state.role; default dipendente
+        const segBtn = document.querySelector('#swapRoleSegment button[aria-pressed="true"]');
+        if(segBtn) return segBtn.getAttribute('data-role');
+        if(state.generated && state.role) return state.role;
+        return 'dipendente';
+      }
+
       function openTime(targetId, title){
         timeTarget=targetId;
         document.getElementById('swapTimeTitle').textContent=title;
-        renderTimeGrid(document.getElementById(targetId).value);
+        renderTimeGrid(document.getElementById(targetId).value, _getSwapRole());
         document.getElementById('swapTimeModal').style.display='flex';
       }
 
@@ -4798,7 +4798,12 @@ function buildHolidayMapForYear(year){
       refreshSwapReadiness();
       initSwapPickers();
 
-      // Typed "Sei" segmented (modalità manuale)
+      // Typed "Sei" segmented (modalità manuale) — pre-seleziona ruolo se già impostato
+      if(state.role){
+        document.querySelectorAll('#swapRoleSegment button').forEach(b => {
+          b.setAttribute('aria-pressed', b.getAttribute('data-role') === state.role ? 'true' : 'false');
+        });
+      }
       document.querySelectorAll('#swapRoleSegment button').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('#swapRoleSegment button').forEach(b => b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
