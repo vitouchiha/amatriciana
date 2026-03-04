@@ -4910,7 +4910,7 @@ function buildHolidayMapForYear(year){
       const clearKeyBtn = document.getElementById('scanClearKeyBtn');
 
       function _updateKeyUI(){
-        if(_geminiApiKey){
+        if(_aiApiKey){
           keyInp.style.display = 'none';
           keySetLbl.style.display = '';
           saveKeyBtn.style.display = 'none';
@@ -4928,14 +4928,14 @@ function buildHolidayMapForYear(year){
       saveKeyBtn.addEventListener('click', ()=>{
         const v = keyInp.value.trim();
         if(!v){ toast('Attenzione', 'Inserisci la API key.'); return; }
-        _geminiApiKey = v;
+        _aiApiKey = v;
         fbSave();
-        toast('Salvata', 'Gemini API key salvata.');
+        toast('Salvata', 'API key salvata.');
         _updateKeyUI();
       });
 
       clearKeyBtn.addEventListener('click', ()=>{
-        _geminiApiKey = '';
+        _aiApiKey = '';
         fbSave();
         toast('Rimossa', 'API key rimossa.');
         _updateKeyUI();
