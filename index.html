@@ -1676,14 +1676,7 @@
           </div>
           <div style="margin:4px 0 8px;">
             <div style="font-size:10px;font-weight:900;opacity:0.5;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Fascia oraria</div>
-            <div id="searchShiftPills" style="display:flex;flex-wrap:wrap;gap:6px;">
-              <button type="button" class="swap-day-pill" data-shift="06:00">06:00</button>
-              <button type="button" class="swap-day-pill" data-shift="08:00">08:00</button>
-              <button type="button" class="swap-day-pill" data-shift="11:00">11:00</button>
-              <button type="button" class="swap-day-pill" data-shift="12:00">12:00</button>
-              <button type="button" class="swap-day-pill" data-shift="15:00">15:00</button>
-              <button type="button" class="swap-day-pill" data-shift="18:00">18:00</button>
-            </div>
+            <div id="searchShiftPills" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
           </div>
           <button class="btn ok-btn" id="searchDateBtn" type="button" style="margin-top:4px;">
             <i class="fa-solid fa-magnifying-glass"></i> Cerca
@@ -3827,20 +3820,40 @@ function buildHolidayMapForYear(year){
         if(window._openSwapCal) window._openSwapCal('searchDateHidden', 'Giorno da cercare', 'searchDateLbl');
       });
 
-      // Role segment
+      // Role segment + rebuild pills on change
+      function rebuildShiftPills(role){
+        const container = document.getElementById('searchShiftPills');
+        if(!container) return;
+        const pattern = role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
+        const unique = [...new Set(pattern.map(p => p.startTime))].sort((a,b) => {
+          const [ah,am]=a.split(':').map(Number), [bh,bm]=b.split(':').map(Number);
+          return (ah*60+am)-(bh*60+bm);
+        });
+        const prevActive = container.querySelector('.swap-day-pill.active')?.dataset.shift || null;
+        container.innerHTML = '';
+        unique.forEach(t => {
+          const btn = document.createElement('button');
+          btn.type='button'; btn.className='swap-day-pill'; btn.dataset.shift=t; btn.textContent=t;
+          if(t===prevActive) btn.classList.add('active');
+          btn.addEventListener('click', () => {
+            container.querySelectorAll('.swap-day-pill').forEach(x=>x.classList.remove('active'));
+            btn.classList.add('active');
+          });
+          container.appendChild(btn);
+        });
+      }
+
       document.querySelectorAll('#searchRoleSegment button').forEach(b => {
         b.addEventListener('click', () => {
           document.querySelectorAll('#searchRoleSegment button').forEach(x => x.setAttribute('aria-pressed', x===b?'true':'false'));
+          rebuildShiftPills(b.dataset.role);
         });
       });
 
-      // Shift pills — selezione singola
-      document.querySelectorAll('#searchShiftPills .swap-day-pill').forEach(p => {
-        p.addEventListener('click', () => {
-          document.querySelectorAll('#searchShiftPills .swap-day-pill').forEach(x => x.classList.remove('active'));
-          p.classList.toggle('active', true);
-        });
-      });
+      // Initial pills for default role (dipendente)
+      rebuildShiftPills('dipendente');
+
+      // Shift pills — selezione singola (handled inside rebuildShiftPills)
 
       btn.addEventListener('click', () => {
         const dateVal = document.getElementById('searchDateHidden').value;
