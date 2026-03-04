@@ -1888,8 +1888,8 @@
             <button type="button" id="scanTeamNaBtn" title="Non conosco il team" onclick="document.getElementById('scanTeamInput').value='N/A'" style="padding:5px 10px;border-radius:8px;border:1.5px solid var(--stroke);background:transparent;font-size:11px;font-weight:800;color:var(--text);cursor:pointer;">N/A</button>
           </div>
         </div>
-        <!-- API Key row -->
-        <div id="scanApiRow" style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px;background:var(--ctrl-bg);border-radius:12px;border:1.5px solid var(--stroke);">
+        <!-- API Key row (nascosta - chiave fissa) -->
+        <div id="scanApiRow" style="display:none;">
           <i class="fa-solid fa-key" style="color:var(--accent);font-size:14px;flex-shrink:0;"></i>
           <div style="flex:1;min-width:0;">
             <div style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;">Gemini API Key</div>
@@ -3099,7 +3099,7 @@ function buildHolidayMapForYear(year){
           generated:          state.generated
         },
         rientriAnchors: TEAM_RIENTRO_ANCHORS,
-        geminiApiKey: _geminiApiKey,
+
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       };
       _fbDb.doc(_FB_DOC).set(doc).catch(e => console.warn('[FB] save error:', e));
@@ -3419,7 +3419,7 @@ function buildHolidayMapForYear(year){
 
     // ===== MATRICE COLLEGA =====
     let _viewedColleague = null;
-    let _geminiApiKey = '';
+    let _geminiApiKey = 'AIzaSyDLVk7bgNLTJ1WvCugeM06sKcBhYiWMEEM';
     let _colleagueViewMode = 'calendar'; // 'calendar' | 'cards' | 'table'
     let _colleagueViewYear = new Date().getFullYear();
 
@@ -4293,7 +4293,7 @@ function buildHolidayMapForYear(year){
       }
 
       // Gemini API key
-      if(fbData.geminiApiKey) _geminiApiKey = fbData.geminiApiKey;
+
 
       // Colleghi
       if(Array.isArray(fbData.colleghi)){
