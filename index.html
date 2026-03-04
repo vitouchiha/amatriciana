@@ -4996,7 +4996,7 @@ function buildHolidayMapForYear(year){
             btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="margin-right:7px;"></i>Lettura immagine ${pct}%...`;
           });
           _scanResult = matchScheduleToPattern(extracted.giorni || [], _scanRole);
-          showScanResult(_scanResult, extracted.giorni || [], extracted.weekLabel || '');
+          showScanResult(_scanResult, extracted.giorni || [], extracted.weekLabel || '', extracted._debug || null);
         } catch(err){
           const wrap = document.getElementById('scanResultWrap');
           wrap.style.display = '';
@@ -5090,16 +5090,19 @@ function buildHolidayMapForYear(year){
 
       // Assegna ogni orario alla colonna più vicina (nearest-column)
       const workColNums = new Set();
+      const _debugAssignments = [];
       timeWords.forEach(w => {
         const x = cx(w);
         let bestI = 0, bestDist = Infinity;
         dateXs.forEach((dx, i) => { const d = Math.abs(x - dx); if(d < bestDist){ bestDist=d; bestI=i; } });
         workColNums.add(+dateWords[bestI].text);
+        _debugAssignments.push({ text: w.text.trim(), x: Math.round(x), assignedDate: +dateWords[bestI].text, dist: Math.round(bestDist) });
       });
 
       // Colonne senza orari = riposo
       const allNums = dateWords.map(d => +d.text);
       const restNums = allNums.filter(n => !workColNums.has(n));
+      const _debugDates = dateWords.map(d => ({ num: +d.text, x: Math.round(cx(d)), synth: !!d._synthetic }));
 
       // Converti numeri in giorno settimana + costruisci weekLabel
       const restDays = [];
@@ -5141,7 +5144,7 @@ function buildHolidayMapForYear(year){
           ? { giorno:d, riposo:true }
           : { giorno:d, riposo:false, inizio:mainStart, fine:'00:00' }
       ));
-      return { giorni, weekLabel };
+      return { giorni, weekLabel, _debug: { dates: _debugDates, times: _debugAssignments, restNums } };
     }
 
     function matchScheduleToPattern(giorni, forcedRole){
@@ -5167,7 +5170,7 @@ function buildHolidayMapForYear(year){
       return { role:bestRole, anchorIndex:bestIdx, mainStart, restDays };
     }
 
-    function showScanResult(match, giorni, weekLabel){
+    function showScanResult(match, giorni, weekLabel, _debug){
       const { role, anchorIndex } = match;
       const pattern = role==='tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
       const entry = pattern[anchorIndex];
@@ -5191,8 +5194,19 @@ function buildHolidayMapForYear(year){
           <div style="padding:5px 10px;background:var(--ctrl-bg);border-radius:8px;">Riposi: <strong>${entry.restDays.join(', ')}</strong></div>
         </div>
       </div>`;
+      let debugHtml = '';
+      if(_debug){
+        const datesStr = (_debug.dates||[]).map(d=>`<span style="${d.synth?'opacity:0.5;font-style:italic':''}">${d.num}@${d.x}px${d.synth?' (synth)':''}</span>`).join(' · ');
+        const timesStr = (_debug.times||[]).map(t=>`<span>${escapeHtml(t.text)}→col${t.assignedDate}(${t.dist}px)</span>`).join(' · ');
+        const restStr = (_debug.restNums||[]).join(', ') || '—';
+        debugHtml = `<details style="margin-top:10px;"><summary style="font-size:10px;font-weight:900;opacity:0.45;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;">Debug OCR</summary><div style="font-size:10px;line-height:1.7;opacity:0.7;padding-top:6px;word-break:break-all;">
+<div><strong>Date rilevate:</strong> ${datesStr}</div>
+<div><strong>Orari→colonne:</strong> ${timesStr}</div>
+<div><strong>Colonne riposo:</strong> ${restStr}</div>
+</div></details>`;
+      }
       const wrap = document.getElementById('scanResultWrap');
-      wrap.innerHTML = html; wrap.style.display = '';
+      wrap.innerHTML = html + debugHtml; wrap.style.display = '';
       document.getElementById('scanApplyBtn').style.display = '';
     }
 
