@@ -5055,25 +5055,37 @@ function buildHolidayMapForYear(year){
 
       if(dateWords.length < 2) throw new Error("Impossibile rilevare le colonne-data. Avvicina la fotocamera e assicurati che le date siano visibili.");
 
-      // Estrapolazione: se abbiamo date consecutive mancanti (coperte da UI), aggiungile sintetiche
-      const nums = dateWords.map(d => +d.text);
-      const gaps = nums.slice(1).map((n,i) => n - nums[i]);
-      const allConsec = gaps.every(g => g === 1);
-      if(allConsec && nums.length < 7){
-        const avgGapPx = dateWords.length >= 2
-          ? (cx(dateWords[dateWords.length-1]) - cx(dateWords[0])) / (dateWords.length - 1)
-          : 80;
-        const lastX = cx(dateWords[dateWords.length-1]);
-        const lastNum = nums[nums.length-1];
-        const needed = 7 - nums.length;
-        for(let i=1; i<=needed; i++){
+      // Ricostruisci settimana completa: riempi TUTTI i buchi nel range [nums[0], nums[0]+6]
+      // incluse date coperte dal pulsante ✕ o da altri elementi UI
+      {
+        const nums0 = dateWords.map(d => +d.text);
+        // Calcola px/giorno dai gap piccoli tra date reali (gap ≤3 per sicurezza)
+        let pxPerDay = 70;
+        const pxSamples = [];
+        for(let i=1; i<dateWords.length; i++){
+          const dn = nums0[i] - nums0[i-1];
+          if(dn > 0 && dn <= 3) pxSamples.push((cx(dateWords[i]) - cx(dateWords[i-1])) / dn);
+        }
+        if(pxSamples.length) pxPerDay = pxSamples.reduce((a,b)=>a+b,0)/pxSamples.length;
+
+        const rangeStart = nums0[0];
+        const rangeEnd = rangeStart + 6;
+        const presentNums = new Set(nums0);
+        for(let n = rangeStart; n <= rangeEnd; n++){
+          if(presentNums.has(n)) continue;
+          // Usa la data reale più vicina come ancora per interpolare X
+          const anchor = dateWords.reduce((best, dw) =>
+            Math.abs(+dw.text - n) < Math.abs(+best.text - n) ? dw : best);
+          const synthX = cx(anchor) + (n - +anchor.text) * pxPerDay;
           const synth = {
-            text: String(lastNum + i),
-            confidence: 0,
-            bbox: { x0: lastX + avgGapPx*i - 15, x1: lastX + avgGapPx*i + 15, y0: 0, y1: topThr * 0.5},
+            text: String(n), confidence: 0,
+            bbox: { x0: synthX-15, x1: synthX+15, y0: 0, y1: topThr*0.5 },
             _synthetic: true
           };
-          dateWords.push(synth);
+          const insertIdx = dateWords.findIndex(d => +d.text > n);
+          if(insertIdx === -1) dateWords.push(synth);
+          else dateWords.splice(insertIdx, 0, synth);
+          presentNums.add(n);
         }
       }
 
@@ -5085,10 +5097,14 @@ function buildHolidayMapForYear(year){
       const timeWords = allTimeWords.filter(w => parseT(w.text.trim()) !== '00:00');
       if(timeWords.length === 0) throw new Error("Nessun orario trovato. Usa un'immagine più nitida.");
 
-      // Orario più frequente (non-zero) = inizio turno
+      // Orario più frequente (non-zero); preferisce orari che compaiono nei pattern del ruolo
       const freq = {};
       timeWords.forEach(w => { const t = parseT(w.text.trim()); freq[t] = (freq[t]||0)+1; });
-      const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0][0];
+      const rolePatterns = role === 'tutor' ? TUTOR_PATTERN : (role === 'dipendente' ? DIPENDENTE_PATTERN : [...TUTOR_PATTERN, ...DIPENDENTE_PATTERN]);
+      const patternTimes = new Set(rolePatterns.map(p => p.startTime));
+      const freqEntries = Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+      // Prima tra gli orari dei pattern (più affidabili); poi fallback al più frequente
+      const mainStart = freqEntries.find(([t]) => patternTimes.has(t))?.[0] || freqEntries[0][0];
 
       // Assegna TUTTI gli orari (anche 0.00) alla colonna più vicina — così colonne lavorative
       // vengono marcate anche quando l'orario principale finisce nella colonna sbagliata
@@ -5156,9 +5172,12 @@ function buildHolidayMapForYear(year){
       const freq = {};
       workDays.forEach(g => { freq[g.inizio] = (freq[g.inizio]||0) + 1; });
       const mainStart = Object.entries(freq).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+      // Set di tutti gli orari rilevati (per bonus parziale)
+      const detectedTimes = new Set(workDays.map(g => g.inizio).filter(Boolean));
       function score(entry){
         let s = 0;
-        if(entry.startTime === mainStart) s += 4;
+        if(entry.startTime === mainStart) s += 6;          // orario esatto = max bonus
+        else if(detectedTimes.has(entry.startTime)) s += 2; // orario visto almeno 1 volta
         entry.restDays.forEach(r => { if(restDays.includes(r)) s += 2; });
         restDays.forEach(r => { if(entry.restDays.includes(r)) s += 1; });
         return s;
