@@ -2195,6 +2195,16 @@
       return Math.max(count, 1);
     }
 
+    // Conta settimane su 20 anni (per matrici dei colleghi)
+    function computeColleagueWeekCount(startISO){
+      const start = parseISODate(startISO);
+      const endDate = new Date(start.getFullYear() + 20, 11, 31);
+      let count = 0;
+      let cur = new Date(start.getTime());
+      while(cur <= endDate){ count++; cur = addDays(cur, 7); }
+      return Math.max(count, 1);
+    }
+
     // Restituisce il totale settimane in base a ruolo e stato corrente
     // Per entrambi i ruoli: settimane dalla partenza fino al 31 dic dell'anno selezionato
     function computeTotalWeeks(){
@@ -3129,11 +3139,11 @@ function buildHolidayMapForYear(year){
     // ===== TEAM & CERCA PER DATA =====
 
     // Costruisce la matrice per un config arbitrario (non usa state globale)
-    function buildMatrixDataForConfig(cfg){
+    function buildMatrixDataForConfig(cfg, totalWeeksOverride){
       const pattern = cfg.role === 'tutor' ? TUTOR_PATTERN : DIPENDENTE_PATTERN;
       const specialOvr = cfg.role === 'tutor' ? {} : DIPENDENTE_SPECIAL_START_OVERRIDES;
       const baseStart = parseISODate(cfg.startWeekISO);
-      const totalWeeks = computeTutorWeekCount(cfg.startWeekISO);
+      const totalWeeks = totalWeeksOverride || computeTutorWeekCount(cfg.startWeekISO);
       const endWindow = addDays(baseStart, (totalWeeks - 1) * 7 + 6);
       const years = new Set();
       for(let y = baseStart.getFullYear(); y <= endWindow.getFullYear(); y++) years.add(y);
@@ -3297,42 +3307,69 @@ function buildHolidayMapForYear(year){
     }
 
     function buildCardsViewForCfg(cfg){
-      const weeks = buildMatrixDataForConfig(cfg);
+      const totalWeeks = computeColleagueWeekCount(cfg.startWeekISO);
+      const weeks = buildMatrixDataForConfig(cfg, totalWeeks);
       const todayISO = isoDate(new Date());
+      const todayYear = new Date().getFullYear();
       const wrap = document.createElement('div');
       wrap.className = 'cards-wrap';
       wrap.style.display = 'block';
-      weeks.forEach((w, idx) => {
-        const isWeekToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
-        const det = document.createElement('details');
-        det.className = 'week-card';
-        if(idx === 0 || isWeekToday) det.open = true;
-        const label = weekLabel(w.weekStart);
-        const summ = document.createElement('summary');
-        summ.innerHTML = `<div class="wc-left"><div class="wc-title">${label}</div></div><div class="chev"><i class="fa-solid fa-chevron-down"></i></div>`;
-        det.appendChild(summ);
-        const body = document.createElement('div');
-        body.className = 'wc-body';
-        w.days.forEach(d => {
-          const dateTxt = fmtDayMonth(d.dateObj);
-          const isToday = isoDate(d.dateObj) === todayISO;
-          let rightHTML = '';
-          if(d.holidayName){
-            rightHTML = `<div class="day-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div><div class="holiday-name">${escapeHtml(d.holidayName)}</div>`;
-          } else if(d.isRest){
-            rightHTML = `<div class="pill rest">LIBERO</div>`;
-          } else {
-            rightHTML = `<div class="day-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
-          }
-          if(d.isRientro) rightHTML += `<div class="cal-rientro">Rientro</div>`;
-          const row = document.createElement('div');
-          row.className = `day-row${isToday ? ' day-row-today' : ''}`;
-          if(isToday) row.style.cssText = 'outline:2px solid var(--accent);outline-offset:-2px;border-radius:14px;';
-          row.innerHTML = `<div class="day-left"><div class="day-name">${d.dayName}</div><div class="day-date">${dateTxt}</div></div><div class="day-right">${rightHTML}</div>`;
-          body.appendChild(row);
+
+      // Group weeks by year
+      const byYear = new Map();
+      weeks.forEach(w => {
+        const y = w.weekStart.getFullYear();
+        if(!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(w);
+      });
+
+      byYear.forEach((yearWeeks, year) => {
+        const yearDet = document.createElement('details');
+        yearDet.style.cssText = 'border-radius:12px;border:1.5px solid var(--stroke,#e2e8f0);overflow:hidden;margin-bottom:10px;';
+        yearDet.open = (year === todayYear);
+        const yearSumm = document.createElement('summary');
+        yearSumm.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-size:14px;font-weight:900;cursor:pointer;user-select:none;background:var(--ctrl-bg,#f8fafc);list-style:none;letter-spacing:-0.4px;';
+        yearSumm.innerHTML = `<span>${year}</span><span style="background:#e2e8f0;color:#64748b;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;">${yearWeeks.length} settimane</span>`;
+        yearDet.appendChild(yearSumm);
+
+        const yearBody = document.createElement('div');
+        yearBody.style.cssText = 'padding:6px 6px 4px;';
+
+        yearWeeks.forEach(w => {
+          const isWeekToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+          const det = document.createElement('details');
+          det.className = 'week-card';
+          if(isWeekToday) det.open = true;
+          const label = weekLabel(w.weekStart);
+          const summ = document.createElement('summary');
+          summ.innerHTML = `<div class="wc-left"><div class="wc-title">${label}</div></div><div class="chev"><i class="fa-solid fa-chevron-down"></i></div>`;
+          det.appendChild(summ);
+          const body = document.createElement('div');
+          body.className = 'wc-body';
+          w.days.forEach(d => {
+            const dateTxt = fmtDayMonth(d.dateObj);
+            const isToday = isoDate(d.dateObj) === todayISO;
+            let rightHTML = '';
+            if(d.holidayName){
+              rightHTML = `<div class="day-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div><div class="holiday-name">${escapeHtml(d.holidayName)}</div>`;
+            } else if(d.isRest){
+              rightHTML = `<div class="pill rest">LIBERO</div>`;
+            } else {
+              rightHTML = `<div class="day-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            }
+            if(d.isRientro) rightHTML += `<div class="cal-rientro">Rientro</div>`;
+            const row = document.createElement('div');
+            row.className = `day-row${isToday ? ' day-row-today' : ''}`;
+            if(isToday) row.style.cssText = 'outline:2px solid var(--accent);outline-offset:-2px;border-radius:14px;';
+            row.innerHTML = `<div class="day-left"><div class="day-name">${d.dayName}</div><div class="day-date">${dateTxt}</div></div><div class="day-right">${rightHTML}</div>`;
+            body.appendChild(row);
+          });
+          det.appendChild(body);
+          yearBody.appendChild(det);
         });
-        det.appendChild(body);
-        wrap.appendChild(det);
+
+        yearDet.appendChild(yearBody);
+        wrap.appendChild(yearDet);
       });
       return wrap;
     }
@@ -3349,43 +3386,64 @@ function buildHolidayMapForYear(year){
     }
 
     function buildTableViewForCfg(cfg){
-      const weeks    = buildMatrixDataForConfig(cfg);
+      const totalWeeks = computeColleagueWeekCount(cfg.startWeekISO);
+      const weeks = buildMatrixDataForConfig(cfg, totalWeeks);
       const todayISO = isoDate(new Date());
+      const todayYear = new Date().getFullYear();
       const cols = ['Settimana', ...DAYS];
+      const wrap = document.createElement('div');
 
-      let html = '<div class="matrix-container" style="overflow-x:auto;"><table class="matrix-table"><thead><tr>';
-      cols.forEach(c => html += `<th>${c}</th>`);
-      html += '</tr></thead><tbody>';
-
+      // Group by year
+      const byYear = new Map();
       weeks.forEach(w => {
-        const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
-        html += `<tr class="${isRowToday ? 'row-today' : ''}">`;
-        html += `<td><span class="week-label">${weekLabel(w.weekStart)}</span></td>`;
-        w.days.forEach(d => {
-          const isToday = isoDate(d.dateObj) === todayISO;
-          let cellHtml = `<div class="cell-stack">`;
-          if(d.holidayName){
-            cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
-            cellHtml += `<div class="holiday-name">${d.holidayName}</div>`;
-          } else if(d.isRest){
-            cellHtml += `<div class="pill rest">LIBERO</div>`;
-          } else {
-            cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
-          }
-          if(d.isRientro) cellHtml += `<div class="cal-rientro">Rientro</div>`;
-          cellHtml += `</div>`;
-          html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
-        });
-        html += '</tr>';
+        const y = w.weekStart.getFullYear();
+        if(!byYear.has(y)) byYear.set(y, []);
+        byYear.get(y).push(w);
       });
 
-      html += '</tbody></table></div>';
-      const wrap = document.createElement('div');
-      wrap.innerHTML = html;
+      byYear.forEach((yearWeeks, year) => {
+        const yearDet = document.createElement('details');
+        yearDet.open = (year === todayYear);
+        yearDet.style.cssText = 'margin-bottom:10px;border-radius:10px;overflow:hidden;border:1.5px solid var(--stroke,#e2e8f0);';
+        const yearSumm = document.createElement('summary');
+        yearSumm.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-size:14px;font-weight:900;cursor:pointer;user-select:none;background:var(--ctrl-bg,#f8fafc);list-style:none;letter-spacing:-0.4px;';
+        yearSumm.innerHTML = `<span>${year}</span><span style="background:#e2e8f0;color:#64748b;border-radius:999px;font-size:11px;font-weight:700;padding:1px 8px;">${yearWeeks.length} sett.</span>`;
+        yearDet.appendChild(yearSumm);
+
+        let html = '<div class="matrix-container" style="overflow-x:auto;"><table class="matrix-table"><thead><tr>';
+        cols.forEach(c => html += `<th>${c}</th>`);
+        html += '</tr></thead><tbody>';
+        yearWeeks.forEach(w => {
+          const isRowToday = w.days.some(d => isoDate(d.dateObj) === todayISO);
+          html += `<tr class="${isRowToday ? 'row-today' : ''}">`;
+          html += `<td><span class="week-label">${weekLabel(w.weekStart)}</span></td>`;
+          w.days.forEach(d => {
+            const isToday = isoDate(d.dateObj) === todayISO;
+            let cellHtml = `<div class="cell-stack">`;
+            if(d.holidayName){
+              cellHtml += `<div class="cell-time time-red"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+              cellHtml += `<div class="holiday-name">${d.holidayName}</div>`;
+            } else if(d.isRest){
+              cellHtml += `<div class="pill rest">LIBERO</div>`;
+            } else {
+              cellHtml += `<div class="cell-time"><div class="time-start">${d.start}</div><div class="time-end">${d.end}</div></div>`;
+            }
+            if(d.isRientro) cellHtml += `<div class="cal-rientro">Rientro</div>`;
+            cellHtml += `</div>`;
+            html += `<td${isToday ? ' class="cell-today"' : ''}>${cellHtml}</td>`;
+          });
+          html += '</tr>';
+        });
+        html += '</tbody></table></div>';
+        const tableDiv = document.createElement('div');
+        tableDiv.innerHTML = html;
+        yearDet.appendChild(tableDiv);
+        wrap.appendChild(yearDet);
+      });
       return wrap;
     }
 
-    function buildCalendarExportNodeForCfg(cfg){
+    function buildCalendarExportNodeForCfg(cfg, totalWeeksOverride){
       // Exact pixel-match to the on-screen .cal-* CSS classes
       const S = {
         cell:    'position:relative; min-height:80px; padding:5px 4px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; display:flex; flex-direction:column; gap:2px; background:#fff;',
@@ -3404,8 +3462,10 @@ function buildHolidayMapForYear(year){
         dow:     'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 3px; border-right:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
         dowEnd:  'text-align:center; font-size:11px; font-weight:900; color:#64748b; padding:8px 3px; border-right:0;                border-bottom:1px solid #e2e8f0; background:rgba(255,255,255,0.18); letter-spacing:0.4px;',
       };
-      const weeks    = buildMatrixDataForConfig(cfg);
+      const _calTotalWeeks = totalWeeksOverride || computeColleagueWeekCount(cfg.startWeekISO);
+      const weeks    = buildMatrixDataForConfig(cfg, _calTotalWeeks);
       const todayISO = isoDate(new Date());
+      const todayYear = new Date().getFullYear();
       const DOW_LABELS = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
       const monthMap  = new Map();
       weeks.forEach(w => w.days.forEach(d => {
@@ -3415,8 +3475,16 @@ function buildHolidayMapForYear(year){
       }));
       const container = document.createElement('div');
       container.style.cssText = 'background:#f1f5f9; font-family:system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; gap:14px; padding:12px; width:700px; box-sizing:border-box;';
+      let _lastRenderedYear = null;
       monthMap.forEach((days, key) => {
         const [y, m] = key.split('-').map(Number);
+        if(y !== _lastRenderedYear){
+          _lastRenderedYear = y;
+          const yrDiv = document.createElement('div');
+          yrDiv.style.cssText = 'font-size:22px;font-weight:900;color:#1e293b;letter-spacing:-0.8px;padding:4px 2px 0;border-bottom:2px solid #cbd5e1;margin-bottom:-4px;';
+          yrDiv.textContent = String(y);
+          container.appendChild(yrDiv);
+        }
         const monthName = MONTHS[m-1] + ' ' + y;
         const firstOfMonth = new Date(y, m-1, 1);
         const offsetMon = (d => d===0?6:d-1)(firstOfMonth.getDay());
@@ -3539,10 +3607,11 @@ function buildHolidayMapForYear(year){
     async function exportColleagueForYear(year){
       if(!_viewedColleague) return;
       const cfg = computeCfgForYear(_viewedColleague, year);
+      const yearWeekCount = computeTutorWeekCount(cfg.startWeekISO);
       const btn = document.getElementById('exportNextYearBtn');
       if(btn){ const i=btn.querySelector('i'); if(i) i.className='fa-solid fa-spinner fa-spin'; }
       try{
-        const node = buildCalendarExportNodeForCfg(cfg);
+        const node = buildCalendarExportNodeForCfg(cfg, yearWeekCount);
         node.style.position='fixed'; node.style.left='-99999px'; node.style.top='0';
         document.body.appendChild(node);
         const canvas = await html2canvas(node, { backgroundColor:'#ffffff', scale:Math.min(3, window.devicePixelRatio ? window.devicePixelRatio*2 : 2), useCORS:true, logging:false, scrollX:0, scrollY:0 });
